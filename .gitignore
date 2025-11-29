@@ -1,0 +1,83 @@
+# --------------------------------------
+# System / Misc
+# --------------------------------------
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+*.lock
+
+# --------------------------------------
+# IntelliJ / Android Studio
+# --------------------------------------
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# --------------------------------------
+# VS Code (optional – remove if you want to track configs)
+# --------------------------------------
+#.vscode/
+
+# --------------------------------------
+# Flutter / Dart / Pub
+# --------------------------------------
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+coverage/
+**/doc/api/
+
+# --------------------------------------
+# iOS
+# --------------------------------------
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/ephemeral/
+**/ios/.generated/
+
+# Symbolication / Obfuscation
+app.*.symbols
+app.*.map.json
+
+# --------------------------------------
+# Android
+# --------------------------------------
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# --------------------------------------
+# macOS
+# --------------------------------------
+/macos/Flutter/ephemeral/
+/macos/.generated/
+
+# --------------------------------------
+# Windows
+# --------------------------------------
+/windows/flutter/ephemeral/
+/windows/.generated/
+
+# --------------------------------------
+# Linux (if you ever enable it)
+# --------------------------------------
+/linux/flutter/ephemeral/
+/linux/.generated/
+
+# --------------------------------------
+# Web (if enabled)
+# --------------------------------------
+/web/.dart_tool/
