@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:commissary_app/utils/design_contants';
+import 'package:commissary_app/utils/design_constants.dart';
 import '../../../data/local/app_database.dart';
 import '../../../data/database_provider.dart';
 
