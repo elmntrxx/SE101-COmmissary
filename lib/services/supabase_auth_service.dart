@@ -409,37 +409,72 @@ class SupabaseAuthService {
   // ============================================================
 
   /// Create a Supabase Auth user for a branch admin
-  /// This allows them to authenticate with RLS working correctly
+  /// Uses signUp() which works with anon key (no admin privileges needed)
+  /// Note: Ensure "Confirm email" is disabled in Supabase Auth settings
+  /// or the user will need to confirm their email before logging in
   Future<String?> createBranchAdminAuthUser({
     required String email,
     required String password,
     required String organizationCloudId,
   }) async {
+    // Store current commissary admin session before creating new user
+    final currentSession = _supabase.auth.currentSession;
+    final savedUser = _currentUser;
+    
     try {
-      final response = await _supabase.auth.admin.createUser(
-        AdminUserAttributes(
-          email: email,
-          password: password,
-          emailConfirm: true,
-          userMetadata: {
-            'organization_id': organizationCloudId,
-            'role': 'branch_admin',
-          },
-        ),
+      // Use signUp instead of admin.createUser (works with anon key)
+      final response = await _supabase.auth.signUp(
+        email: email,
+        password: password,
+        data: {
+          'organization_id': organizationCloudId,
+          'role': 'branch_admin',
+        },
       );
 
       if (response.user != null) {
+        final newAuthUserId = response.user!.id;
+        
         if (kDebugMode) {
-          print('✅ Created Supabase Auth user: ${response.user!.id}');
+          print('✅ Created Supabase Auth user: $newAuthUserId');
         }
-        return response.user!.id;
+        
+        // Sign out the newly created user
+        await _supabase.auth.signOut();
+        
+        // Restore the commissary admin's session if we had one
+        if (currentSession != null) {
+          try {
+            await _supabase.auth.setSession(currentSession.refreshToken!);
+            _currentUser = savedUser;
+            _authStateController?.add(savedUser);
+            if (kDebugMode) {
+              print('✅ Restored commissary admin session');
+            }
+          } catch (e) {
+            if (kDebugMode) {
+              print('⚠️ Could not restore session, admin will need to re-login: $e');
+            }
+          }
+        }
+        
+        return newAuthUserId;
       }
       return null;
     } catch (e) {
+      // Restore session on error too
+      if (currentSession != null) {
+        try {
+          await _supabase.auth.setSession(currentSession.refreshToken!);
+          _currentUser = savedUser;
+          _authStateController?.add(savedUser);
+        } catch (_) {}
+      }
+      
       if (kDebugMode) {
         print('❌ Failed to create auth user: $e');
       }
-      return null;
+      rethrow; // Rethrow to show error message to user
     }
   }
 

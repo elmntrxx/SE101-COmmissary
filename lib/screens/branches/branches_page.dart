@@ -7,6 +7,7 @@ import 'package:crypto/crypto.dart';
 import 'dart:convert';
 import '../../app_globals.dart';
 import '../../database/app_database.dart';
+import '../../services/supabase_auth_service.dart';
 import '../../utils/design_constants.dart';
 
 /// Branches Page - Manage franchisee branches and their admins
@@ -357,7 +358,19 @@ class _BranchesPageState extends State<BranchesPage> {
         throw Exception('Branch Admin role not found');
       }
 
-      // Create user in local database
+      // 1. Create Supabase Auth user first (required for SE101 login)
+      final SupabaseAuthService auth = authService;
+      final authUserId = await auth.createBranchAdminAuthUser(
+        email: email,
+        password: password,
+        organizationCloudId: branch.cloudId,
+      );
+
+      if (authUserId == null) {
+        throw Exception('Failed to create authentication account');
+      }
+
+      // 2. Create user in local database with auth_user_id
       await _db.into(_db.users).insert(
         UsersCompanion.insert(
           cloudId: _uuid.v4(),
@@ -367,6 +380,7 @@ class _BranchesPageState extends State<BranchesPage> {
           passwordHash: _hashPassword(password),
           organizationId: branch.id,
           roleId: branchAdminRole.id,
+          authUserId: Value(authUserId),
         ),
       );
 
