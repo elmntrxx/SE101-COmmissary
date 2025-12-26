@@ -104,4 +104,60 @@ class OrganizationsDao extends DatabaseAccessor<AppDatabase>
       ),
     );
   }
+
+  // ============================================================================
+  // CLOUD SYNC - Insert or update from cloud data
+  // ============================================================================
+
+  /// Upsert a single organization from cloud data
+  /// Returns the local ID of the inserted/updated organization
+  Future<int> upsertFromCloud(Map<String, dynamic> cloudData) async {
+    final cloudId = cloudData['cloud_id'] as String;
+    
+    // Check if organization already exists by cloud_id
+    final existing = await getOrganizationByCloudId(cloudId);
+    
+    if (existing != null) {
+      // Update existing organization
+      await (update(organizations)..where((o) => o.id.equals(existing.id))).write(
+        OrganizationsCompanion(
+          name: Value(cloudData['name'] as String),
+          type: Value(cloudData['type'] as String),
+          address: Value(cloudData['address'] as String?),
+          phone: Value(cloudData['phone'] as String?),
+          email: Value(cloudData['email'] as String?),
+          parentCommissaryId: Value(cloudData['parent_commissary_id'] as String?),
+          isActive: Value(cloudData['is_active'] as bool? ?? true),
+          updatedAt: Value(DateTime.now()),
+          lastSyncedAt: Value(DateTime.now()),
+          needsSync: const Value(false),
+        ),
+      );
+      return existing.id;
+    } else {
+      // Insert new organization
+      final id = await into(organizations).insert(
+        OrganizationsCompanion.insert(
+          cloudId: cloudId,
+          name: cloudData['name'] as String,
+          type: cloudData['type'] as String,
+          address: Value(cloudData['address'] as String?),
+          phone: Value(cloudData['phone'] as String?),
+          email: Value(cloudData['email'] as String?),
+          parentCommissaryId: Value(cloudData['parent_commissary_id'] as String?),
+          isActive: Value(cloudData['is_active'] as bool? ?? true),
+          lastSyncedAt: Value(DateTime.now()),
+          needsSync: const Value(false),
+        ),
+      );
+      return id;
+    }
+  }
+
+  /// Upsert multiple organizations from cloud data
+  Future<void> upsertBatchFromCloud(List<Map<String, dynamic>> cloudDataList) async {
+    for (final cloudData in cloudDataList) {
+      await upsertFromCloud(cloudData);
+    }
+  }
 }

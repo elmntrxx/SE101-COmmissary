@@ -195,7 +195,6 @@ class SupabaseSyncService {
         // This prevents FK constraint violations from updating cloud_id
         await _syncClient.from('organizations').upsert({
           'cloud_id': org.cloudId,
-          'local_id': org.id,
           'name': org.name,
           'type': org.type,
           'address': org.address,
@@ -205,7 +204,7 @@ class SupabaseSyncService {
           'is_active': org.isActive,
           'created_at': org.createdAt.toIso8601String(),
           'last_updated': org.updatedAt.toIso8601String(),
-        }, onConflict: 'local_id', ignoreDuplicates: true);
+        }, onConflict: 'cloud_id');
         await db.organizationsDao.markAsSynced(org.id, DateTime.now());
       } catch (e) {
         print('      ❌ Failed to push org ${org.name}: $e');
@@ -222,7 +221,6 @@ class SupabaseSyncService {
       try {
         await _syncClient.from('roles').upsert({
           'cloud_id': role.cloudId,
-          'local_id': role.id,
           'name': role.name,
           'description': role.description,
           'can_view_inventory': role.canViewInventory,
@@ -240,7 +238,7 @@ class SupabaseSyncService {
           'is_active': role.isActive,
           'created_at': role.createdAt.toIso8601String(),
           'last_updated': role.updatedAt.toIso8601String(),
-        }, onConflict: 'local_id', ignoreDuplicates: true);
+        }, onConflict: 'cloud_id');
         await db.rolesDao.markAsSynced(role.id, DateTime.now());
       } catch (e) {
         print('      ❌ Failed to push role ${role.name}: $e');
@@ -274,7 +272,7 @@ class SupabaseSyncService {
           'is_active': user.isActive,
           'created_at': user.createdAt.toIso8601String(),
           'last_updated': user.updatedAt.toIso8601String(),
-        }, onConflict: 'local_id', ignoreDuplicates: true);
+        });
         await db.usersDao.markAsSynced(user.id, DateTime.now());
       } catch (e) {
         print('      ❌ Failed to push user ${user.email}: $e');
@@ -398,31 +396,31 @@ class SupabaseSyncService {
     try {
       final remoteOrgs = await _syncClient.from('organizations').select();
       print('      Found ${remoteOrgs.length} remote organizations');
-      
+
+      int inserted = 0;
+      int updated = 0;
+
       for (final remote in remoteOrgs) {
         final cloudId = remote['cloud_id'] as String?;
-        final localId = remote['local_id'] as int?;
         if (cloudId == null) continue;
-        
-        // Check if we have this org locally by local_id or cloud_id
-        Organization? existing;
-        if (localId != null) {
-          existing = await db.organizationsDao.getOrganizationById(localId);
-        }
-        existing ??= await db.organizationsDao.getOrganizationByCloudId(cloudId);
-        
-        if (existing != null) {
-          // Update local cloud_id to match remote if different
-          if (existing.cloudId != cloudId) {
-            print('      Updating cloud_id for ${existing.name}');
-            await db.organizationsDao.updateCloudId(existing.id, cloudId);
-          }
+
+        // Check if we have this org locally
+        final existing = await db.organizationsDao.getOrganizationByCloudId(cloudId);
+
+        if (existing == null) {
+          // Insert new organization from cloud
+          await db.organizationsDao.upsertFromCloud(remote);
+          inserted++;
+          print('      ✅ Inserted branch: ${remote['name']}');
         } else {
-          // Insert new organization from remote
-          print('      Inserting remote org: ${remote['name']}');
-          // Could insert if needed, but for now just log
+          // Update existing organization
+          await db.organizationsDao.upsertFromCloud(remote);
+          updated++;
         }
       }
+
+      if (inserted > 0) print('      📥 Inserted $inserted new branches');
+      if (updated > 0) print('      🔄 Updated $updated existing branches');
     } catch (e) {
       print('      ❌ Failed to pull organizations: $e');
     }
@@ -460,23 +458,68 @@ class SupabaseSyncService {
     try {
       final remoteUsers = await _syncClient.from('users').select();
       print('      Found ${remoteUsers.length} remote users');
-      
+
+      int inserted = 0;
+      int updated = 0;
+      int skipped = 0;
+
       for (final remote in remoteUsers) {
         final cloudId = remote['cloud_id'] as String?;
-        final localId = remote['local_id'] as int?;
         if (cloudId == null) continue;
-        
-        User? existing;
-        if (localId != null) {
-          existing = await db.usersDao.getUserById(localId);
+
+        // Resolve foreign keys: organization_id and role_id from cloud to local
+        final orgCloudId = remote['organization_id'] as String?;
+        final roleCloudId = remote['role_id'] as String?;
+
+        if (orgCloudId == null || roleCloudId == null) {
+          skipped++;
+          continue;
         }
-        existing ??= await db.usersDao.getUserByCloudId(cloudId);
-        
-        if (existing != null && existing.cloudId != cloudId) {
-          print('      Updating cloud_id for ${existing.email}');
-          await db.usersDao.updateCloudId(existing.id, cloudId);
+
+        // Find local organization by cloud_id
+        final org = await db.organizationsDao.getOrganizationByCloudId(orgCloudId);
+        // Find local role by cloud_id
+        final role = await db.rolesDao.getRoleByCloudId(roleCloudId);
+
+        if (org == null || role == null) {
+          skipped++;
+          print('      ⚠️ Skipped user ${remote['email']} (missing org or role locally)');
+          continue;
+        }
+
+        // Check if we have this user locally
+        final existing = await db.usersDao.getUserByCloudId(cloudId);
+
+        // Add resolved IDs to the data
+        final resolvedData = {
+          ...remote,
+          'resolved_organization_id': org.id,
+          'resolved_role_id': role.id,
+        };
+
+        if (existing == null) {
+          // Insert new user from cloud
+          await db.usersDao.upsertFromCloud(
+            resolvedData,
+            organizationId: org.id,
+            roleId: role.id,
+          );
+          inserted++;
+          print('      ✅ Inserted account: ${remote['email']}');
+        } else {
+          // Update existing user
+          await db.usersDao.upsertFromCloud(
+            resolvedData,
+            organizationId: org.id,
+            roleId: role.id,
+          );
+          updated++;
         }
       }
+
+      if (inserted > 0) print('      📥 Inserted $inserted new accounts');
+      if (updated > 0) print('      🔄 Updated $updated existing accounts');
+      if (skipped > 0) print('      ⚠️ Skipped $skipped accounts (missing FKs)');
     } catch (e) {
       print('      ❌ Failed to pull users: $e');
     }
