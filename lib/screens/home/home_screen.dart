@@ -32,7 +32,8 @@ class _HomeScreenState extends State<HomeScreen> {
   
   Widget? currentPage;
   int selectedIndex = 0;
-  bool isSideBarOpen = true;
+  bool isSideBarOpen = false;
+  bool showLabels = false;
   bool _isOnline = true;
   SyncStatus _syncStatus = SyncStatus.synced;
 
@@ -104,10 +105,25 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
+  void _toggleSidebar() {
+    setState(() {
+      isSideBarOpen = !isSideBarOpen;
+      showLabels = false;
+    });
+
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted && isSideBarOpen) {
+        setState(() => showLabels = true);
+      }
+    });
+  }
+
   void _switchPage(int index) {
     setState(() {
       selectedIndex = index;
       currentPage = menuItems[index]['page'];
+      isSideBarOpen = false;
+      showLabels = false;
     });
   }
 
@@ -175,7 +191,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSidebar() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: isSideBarOpen ? 250 : 70,
+      width: isSideBarOpen ? 250 : 85,
       decoration: const BoxDecoration(
         color: Color(0xFFEF4848),
         boxShadow: [
@@ -195,20 +211,26 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               children: [
                 const Icon(Icons.store, color: Colors.white, size: 32),
-                if (isSideBarOpen) ...[
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Commissary',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: fontAll,
-                      ),
-                    ),
-                  ),
-                ],
+                AnimatedSize(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  child: showLabels
+                      ? Row(
+                          children: [
+                            const SizedBox(width: 12),
+                            const Text(
+                              'Commissary',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                                fontFamily: fontAll,
+                              ),
+                            ),
+                          ],
+                        )
+                      : const SizedBox(),
+                ),
               ],
             ),
           ),
@@ -240,9 +262,7 @@ class _HomeScreenState extends State<HomeScreen> {
               isSideBarOpen ? Icons.chevron_left : Icons.chevron_right,
               color: Colors.white,
             ),
-            onPressed: () {
-              setState(() => isSideBarOpen = !isSideBarOpen);
-            },
+            onPressed: _toggleSidebar,
           ),
           const SizedBox(height: 8),
         ],
@@ -262,19 +282,36 @@ class _HomeScreenState extends State<HomeScreen> {
         color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
         borderRadius: BorderRadius.circular(10),
       ),
-      child: ListTile(
-        leading: Icon(icon, color: Colors.white),
-        title: isSideBarOpen
-            ? Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: fontAll,
-                ),
-              )
-            : null,
+      child: InkWell(
         onTap: onTap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        borderRadius: BorderRadius.circular(10),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+          child: Row(
+            children: [
+              Icon(icon, color: Colors.white, size: 25),
+              AnimatedSize(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                child: showLabels
+                    ? Row(
+                        children: [
+                          const SizedBox(width: 12),
+                          Text(
+                            label,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontFamily: fontAll,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ],
+                      )
+                    : const SizedBox(),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
