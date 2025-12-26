@@ -274,7 +274,8 @@ class SupabaseSyncService {
           'is_active': user.isActive,
           'created_at': user.createdAt.toIso8601String(),
           'last_updated': user.updatedAt.toIso8601String(),
-        }, onConflict: 'local_id', ignoreDuplicates: true);
+        }, //onConflict: 'local_id', ignoreDuplicates: true
+        );
         await db.usersDao.markAsSynced(user.id, DateTime.now());
       } catch (e) {
         print('      ❌ Failed to push user ${user.email}: $e');
