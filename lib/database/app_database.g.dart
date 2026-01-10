@@ -7319,6 +7319,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final IngredientsDao ingredientsDao = IngredientsDao(
     this as AppDatabase,
   );
+  late final RecipeIngredientsDao recipeIngredientsDao = RecipeIngredientsDao(
+    this as AppDatabase,
+  );
   late final StockReplenishmentRequestsDao stockReplenishmentRequestsDao =
       StockReplenishmentRequestsDao(this as AppDatabase);
   late final StockChangeRequestsDao stockChangeRequestsDao =

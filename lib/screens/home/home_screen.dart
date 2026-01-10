@@ -12,8 +12,7 @@ import '../../utils/design_constants.dart';
 // Import pages
 import '../branches/branches_page.dart';
 import '../reports/reports_page.dart';
-import '../inventory/inventory_page.dart';
-import '../ingredients/ingredients_page.dart';
+import '../inventory_management/inventory_management_page.dart';
 import '../requests/requests_page.dart';
 import '../settings/settings_page.dart';
 
@@ -71,12 +70,11 @@ class _HomeScreenState extends State<HomeScreen> {
       {
         'icon': Icons.inventory_2,
         'label': 'Inventory',
-        'page': const InventoryPage(),
-      },
-      {
-        'icon': Icons.restaurant_menu,
-        'label': 'Ingredients',
-        'page': const IngredientsPage(),
+        'page': InventoryManagementPage(
+          organizationId: widget.signedInUser.organizationId,
+          commissaryId: widget.signedInUser.organizationId,
+          organizationName: 'Inventory Management',
+        ),
       },
       {
         'icon': Icons.swap_horiz,

@@ -27,6 +27,7 @@ import 'daos/users_dao.dart';
 import 'daos/categories_dao.dart';
 import 'daos/items_dao.dart';
 import 'daos/ingredients_dao.dart';
+import 'daos/recipe_ingredients_dao.dart';
 import 'daos/stock_replenishment_requests_dao.dart';
 import 'daos/stock_change_requests_dao.dart';
 
@@ -52,6 +53,7 @@ part 'app_database.g.dart';
     CategoriesDao,
     ItemsDao,
     IngredientsDao,
+    RecipeIngredientsDao,
     StockReplenishmentRequestsDao,
     StockChangeRequestsDao,
   ],
