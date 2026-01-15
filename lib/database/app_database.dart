@@ -159,6 +159,63 @@ class AppDatabase extends _$AppDatabase {
 
     return '$salt\$$hashHex';
   }
+
+  /// Hash password with a specific salt (for verification)
+  static String _hashPasswordWithSalt(String password, String salt) {
+    const int iterations = 100000;
+    const int keyLength = 32;
+
+    final hmac = Hmac(sha256, utf8.encode(password));
+    final saltBytesEncoded = utf8.encode(salt);
+
+    List<int> int32ToBytes(int i) {
+      return <int>[
+        (i >> 24) & 0xff,
+        (i >> 16) & 0xff,
+        (i >> 8) & 0xff,
+        i & 0xff,
+      ];
+    }
+
+    final blockIndexBytes = int32ToBytes(1);
+    var u = hmac.convert([...saltBytesEncoded, ...blockIndexBytes]).bytes;
+    final List<int> derivedBlock = List<int>.from(u);
+
+    for (int i = 1; i < iterations; i++) {
+      u = hmac.convert(u).bytes;
+      for (int j = 0; j < derivedBlock.length; j++) {
+        derivedBlock[j] ^= u[j];
+      }
+    }
+
+    final dk = derivedBlock.sublist(0, keyLength);
+    final hashHex = dk.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+
+    return '$salt\$$hashHex';
+  }
+
+  /// Verify a password against a stored PBKDF2 hash
+  /// Returns true if the password matches the stored hash
+  static bool verifyPassword(String password, String storedHash) {
+    final parts = storedHash.split('\$');
+    if (parts.length != 2) {
+      return false;
+    }
+
+    final salt = parts[0];
+    final expectedFullHash = _hashPasswordWithSalt(password, salt);
+
+    // Constant-time comparison to prevent timing attacks
+    if (storedHash.length != expectedFullHash.length) {
+      return false;
+    }
+
+    int result = 0;
+    for (int i = 0; i < storedHash.length; i++) {
+      result |= storedHash.codeUnitAt(i) ^ expectedFullHash.codeUnitAt(i);
+    }
+    return result == 0;
+  }
 }
 
 LazyDatabase _openConnection() {

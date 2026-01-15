@@ -3,8 +3,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:uuid/uuid.dart';
-import 'package:crypto/crypto.dart';
-import 'dart:convert';
 import '../../app_globals.dart';
 import '../../database/app_database.dart';
 import '../../services/supabase_auth_service.dart';
@@ -66,11 +64,6 @@ class _BranchesPageState extends State<BranchesPage> {
       print('❌ Error loading branches: $e');
       setState(() => _isLoading = false);
     }
-  }
-
-  String _hashPassword(String password) {
-    final bytes = utf8.encode(password);
-    return sha256.convert(bytes).toString();
   }
 
   // ============================================================================
@@ -377,7 +370,7 @@ class _BranchesPageState extends State<BranchesPage> {
           username: name,
           email: email,
           phone: Value(phone),
-          passwordHash: _hashPassword(password),
+          passwordHash: AppDatabase.hashPassword(password),
           organizationId: branch.id,
           roleId: branchAdminRole.id,
           authUserId: Value(authUserId),
