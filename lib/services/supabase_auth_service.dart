@@ -3,6 +3,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 import 'package:crypto/crypto.dart';
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import 'package:supabase_flutter/supabase_flutter.dart' as supabase show User;
@@ -196,8 +197,10 @@ class SupabaseAuthService {
   }
 
   /// Find local user by Supabase auth user
+  /// If not found locally, pulls from cloud and stores locally
   Future<UserData?> _findLocalUser(supabase.User authUser) async {
     try {
+      // First, try to find user locally
       final users = await _db.usersDao.getAllUsers();
       
       for (final user in users) {
@@ -227,13 +230,173 @@ class SupabaseAuthService {
         }
       }
       
-      return null;
+      // Not found locally - try to pull from cloud
+      if (kDebugMode) {
+        print('🔄 [AUTH] User not found locally, pulling from cloud...');
+      }
+      
+      return await _pullUserFromCloud(authUser);
     } catch (e) {
       if (kDebugMode) {
         print('❌ Error finding local user: $e');
       }
       return null;
     }
+  }
+
+  /// Pull user data from Supabase cloud and store locally
+  Future<UserData?> _pullUserFromCloud(supabase.User authUser) async {
+    try {
+      // Query user from cloud by email
+      final userResponse = await _supabase
+          .from('users')
+          .select()
+          .eq('email', authUser.email!)
+          .maybeSingle();
+      
+      if (userResponse == null) {
+        if (kDebugMode) {
+          print('⚠️ [AUTH] User not found in cloud: ${authUser.email}');
+        }
+        return null;
+      }
+      
+      if (kDebugMode) {
+        print('✅ [AUTH] Found user in cloud: ${userResponse['username']}');
+      }
+      
+      // Get organization from cloud
+      final orgCloudId = userResponse['organization_id'] as String?;
+      if (orgCloudId == null) {
+        if (kDebugMode) {
+          print('⚠️ [AUTH] User has no organization_id');
+        }
+        return null;
+      }
+      
+      final orgResponse = await _supabase
+          .from('organizations')
+          .select()
+          .eq('cloud_id', orgCloudId)
+          .maybeSingle();
+      
+      if (orgResponse == null) {
+        if (kDebugMode) {
+          print('⚠️ [AUTH] Organization not found in cloud: $orgCloudId');
+        }
+        return null;
+      }
+      
+      if (kDebugMode) {
+        print('✅ [AUTH] Found organization: ${orgResponse['name']} (${orgResponse['type']})');
+      }
+      
+      // Get role from cloud
+      final roleCloudId = userResponse['role_id'] as String?;
+      if (roleCloudId == null) {
+        if (kDebugMode) {
+          print('⚠️ [AUTH] User has no role_id');
+        }
+        return null;
+      }
+      
+      final roleResponse = await _supabase
+          .from('roles')
+          .select()
+          .eq('cloud_id', roleCloudId)
+          .maybeSingle();
+      
+      if (roleResponse == null) {
+        if (kDebugMode) {
+          print('⚠️ [AUTH] Role not found in cloud: $roleCloudId');
+        }
+        return null;
+      }
+      
+      if (kDebugMode) {
+        print('✅ [AUTH] Found role: ${roleResponse['name']}');
+      }
+      
+      // Store organization locally
+      final localOrgId = await _db.organizationsDao.upsertFromCloud(orgResponse);
+      
+      // Store role locally
+      final localRoleId = await _upsertRoleFromCloud(roleResponse);
+      
+      // Store user locally
+      final localUserId = await _db.usersDao.upsertFromCloud(
+        userResponse,
+        organizationId: localOrgId,
+        roleId: localRoleId,
+      );
+      
+      // Fetch the stored data
+      final localUser = await _db.usersDao.getUserById(localUserId);
+      final localOrg = await _db.organizationsDao.getOrganizationById(localOrgId);
+      final localRole = await _db.rolesDao.getRoleById(localRoleId);
+      
+      if (localUser == null || localOrg == null || localRole == null) {
+        if (kDebugMode) {
+          print('❌ [AUTH] Failed to store user data locally');
+        }
+        return null;
+      }
+      
+      if (kDebugMode) {
+        print('✅ [AUTH] User data synced to local database');
+      }
+      
+      return UserData(
+        id: localUser.id,
+        username: localUser.username,
+        email: localUser.email,
+        phone: localUser.phone,
+        organizationId: localUser.organizationId,
+        organizationCloudId: localOrg.cloudId,
+        organizationType: localOrg.type,
+        organizationName: localOrg.name,
+        roleId: localUser.roleId,
+        roleName: localRole.name,
+        permissions: RolePermissions.fromRole(localRole),
+        cloudId: localUser.cloudId,
+        authUserId: authUser.id,
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ [AUTH] Error pulling user from cloud: $e');
+      }
+      return null;
+    }
+  }
+
+  /// Upsert role from cloud data
+  Future<int> _upsertRoleFromCloud(Map<String, dynamic> cloudData) async {
+    final cloudId = cloudData['cloud_id'] as String;
+    
+    // Check if role exists locally
+    final existing = await _db.rolesDao.getRoleByCloudId(cloudId);
+    
+    if (existing != null) {
+      return existing.id;
+    }
+    
+    // Insert new role
+    return await _db.into(_db.roles).insert(
+      RolesCompanion.insert(
+        cloudId: cloudId,
+        name: cloudData['name'] as String,
+        description: Value(cloudData['description'] as String?),
+        canViewInventory: Value(cloudData['can_view_inventory'] as bool? ?? false),
+        canManageInventory: Value(cloudData['can_add_inventory'] as bool? ?? false),
+        canManageEmployees: Value(cloudData['can_manage_employees'] as bool? ?? false),
+        canManageRoles: Value(cloudData['can_manage_roles'] as bool? ?? false),
+        canViewReports: Value(cloudData['can_view_reports'] as bool? ?? false),
+        canManageBranches: Value(cloudData['can_manage_branches'] as bool? ?? false),
+        isSystemRole: Value(cloudData['is_system_role'] as bool? ?? false),
+        isActive: Value(cloudData['is_active'] as bool? ?? true),
+        needsSync: const Value(false),
+      ),
+    );
   }
 
   /// Sign in with email and password
