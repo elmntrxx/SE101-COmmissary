@@ -23,14 +23,21 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
       (select(categories)..where((c) => c.isDeleted.equals(false))).watch();
 
   /// Get category by ID
-  Future<Category?> getCategoryById(int id) {
-    return (select(categories)..where((c) => c.id.equals(id))).getSingleOrNull();
+  Future<Category?> getCategoryById(int id) async {
+    final results = await (select(categories)
+          ..where((c) => c.id.equals(id))
+          ..limit(1))
+        .get();
+    return results.isEmpty ? null : results.first;
   }
 
   /// Get category by cloud ID
-  Future<Category?> getCategoryByCloudId(String cloudId) {
-    return (select(categories)..where((c) => c.cloudId.equals(cloudId)))
-        .getSingleOrNull();
+  Future<Category?> getCategoryByCloudId(String cloudId) async {
+    final results = await (select(categories)
+          ..where((c) => c.cloudId.equals(cloudId))
+          ..limit(1))
+        .get();
+    return results.isEmpty ? null : results.first;
   }
 
   // ============================================================================

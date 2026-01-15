@@ -39,9 +39,12 @@ class RecipeIngredientsDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Get recipe ingredient by ID
-  Future<RecipeIngredient?> getRecipeIngredientById(int id) {
-    return (select(recipeIngredients)..where((r) => r.id.equals(id)))
-        .getSingleOrNull();
+  Future<RecipeIngredient?> getRecipeIngredientById(int id) async {
+    final results = await (select(recipeIngredients)
+          ..where((r) => r.id.equals(id))
+          ..limit(1))
+        .get();
+    return results.isEmpty ? null : results.first;
   }
 
   /// Get recipe ingredients with full ingredient details
@@ -110,9 +113,9 @@ class RecipeIngredientsDao extends DatabaseAccessor<AppDatabase>
       ''',
       variables: [Variable.withInt(itemId)],
       readsFrom: {recipeIngredients, ingredients},
-    ).getSingle();
+    ).getSingleOrNull();
     
-    return result.data['total_cost'] as double? ?? 0.0;
+    return result?.data['total_cost'] as double? ?? 0.0;
   }
 
   /// Get cost breakdown for a recipe

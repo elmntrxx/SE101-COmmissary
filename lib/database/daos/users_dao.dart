@@ -47,30 +47,42 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
   }
 
   /// Get user by ID
-  Future<User?> getUserById(int id) {
-    return (select(users)..where((u) => u.id.equals(id))).getSingleOrNull();
+  Future<User?> getUserById(int id) async {
+    final results = await (select(users)
+          ..where((u) => u.id.equals(id))
+          ..limit(1))
+        .get();
+    return results.isEmpty ? null : results.first;
   }
 
   /// Get user by cloud ID
-  Future<User?> getUserByCloudId(String cloudId) {
-    return (select(users)..where((u) => u.cloudId.equals(cloudId)))
-        .getSingleOrNull();
+  Future<User?> getUserByCloudId(String cloudId) async {
+    final results = await (select(users)
+          ..where((u) => u.cloudId.equals(cloudId))
+          ..limit(1))
+        .get();
+    return results.isEmpty ? null : results.first;
   }
 
   /// Get user by email
-  Future<User?> getUserByEmail(String email) {
-    return (select(users)..where((u) => u.email.equals(email)))
-        .getSingleOrNull();
+  Future<User?> getUserByEmail(String email) async {
+    final results = await (select(users)
+          ..where((u) => u.email.equals(email))
+          ..limit(1))
+        .get();
+    return results.isEmpty ? null : results.first;
   }
 
   /// Authenticate user with email and password
   Future<User?> authenticate(String email, String password) async {
     final hashedPassword = _hashPassword(password);
-    return (select(users)
+    final results = await (select(users)
           ..where((u) => u.email.equals(email))
           ..where((u) => u.passwordHash.equals(hashedPassword))
-          ..where((u) => u.isActive.equals(true)))
-        .getSingleOrNull();
+          ..where((u) => u.isActive.equals(true))
+          ..limit(1))
+        .get();
+    return results.isEmpty ? null : results.first;
   }
 
   // ============================================================================

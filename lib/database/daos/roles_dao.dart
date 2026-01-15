@@ -25,19 +25,30 @@ class RolesDao extends DatabaseAccessor<AppDatabase> with _$RolesDaoMixin {
   }
 
   /// Get role by ID
-  Future<Role?> getRoleById(int id) {
-    return (select(roles)..where((r) => r.id.equals(id))).getSingleOrNull();
+  Future<Role?> getRoleById(int id) async {
+    final results = await (select(roles)
+          ..where((r) => r.id.equals(id))
+          ..limit(1))
+        .get();
+    return results.isEmpty ? null : results.first;
   }
 
   /// Get role by cloud ID
-  Future<Role?> getRoleByCloudId(String cloudId) {
-    return (select(roles)..where((r) => r.cloudId.equals(cloudId)))
-        .getSingleOrNull();
+  Future<Role?> getRoleByCloudId(String cloudId) async {
+    final results = await (select(roles)
+          ..where((r) => r.cloudId.equals(cloudId))
+          ..limit(1))
+        .get();
+    return results.isEmpty ? null : results.first;
   }
 
   /// Get role by name
-  Future<Role?> getRoleByName(String name) {
-    return (select(roles)..where((r) => r.name.equals(name))).getSingleOrNull();
+  Future<Role?> getRoleByName(String name) async {
+    final results = await (select(roles)
+          ..where((r) => r.name.equals(name))
+          ..limit(1))
+        .get();
+    return results.isEmpty ? null : results.first;
   }
 
   // ============================================================================
