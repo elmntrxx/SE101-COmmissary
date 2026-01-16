@@ -134,9 +134,21 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (shouldLogout == true && mounted) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('loggedInUserId');
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      try {
+        // Sign out from auth service (clears Supabase session and user state)
+        await authService.signOut();
+        
+        // Clear local preferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('loggedInUserId');
+        
+        // Navigate to login screen
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      } catch (e) {
+        print('❌ Error during logout: $e');
+        // Still navigate to login even if logout fails
+        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      }
     }
   }
 

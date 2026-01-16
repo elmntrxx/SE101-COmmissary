@@ -1,5 +1,6 @@
 // lib/services/supabase_sync_service.dart
 import 'dart:async';
+import 'package:drift/drift.dart' show Value;
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../database/app_database.dart';
@@ -432,22 +433,43 @@ class SupabaseSyncService {
       final remoteRoles = await _syncClient.from('roles').select();
       print('      Found ${remoteRoles.length} remote roles');
       
+      int inserted = 0;
+      int updated = 0;
+      
       for (final remote in remoteRoles) {
         final cloudId = remote['cloud_id'] as String?;
-        final localId = remote['local_id'] as int?;
         if (cloudId == null) continue;
         
-        Role? existing;
-        if (localId != null) {
-          existing = await db.rolesDao.getRoleById(localId);
-        }
-        existing ??= await db.rolesDao.getRoleByCloudId(cloudId);
+        // Check if role exists locally by cloud_id
+        final existing = await db.rolesDao.getRoleByCloudId(cloudId);
         
-        if (existing != null && existing.cloudId != cloudId) {
-          print('      Updating cloud_id for ${existing.name}');
-          await db.rolesDao.updateCloudId(existing.id, cloudId);
+        if (existing == null) {
+          // Insert new role from cloud
+          await db.into(db.roles).insert(
+            RolesCompanion.insert(
+              cloudId: cloudId,
+              name: remote['name'] as String,
+              description: Value(remote['description'] as String?),
+              canViewInventory: Value(remote['can_view_inventory'] as bool? ?? false),
+              canManageInventory: Value(remote['can_add_inventory'] as bool? ?? false),
+              canManageEmployees: Value(remote['can_manage_employees'] as bool? ?? false),
+              canManageRoles: Value(remote['can_manage_roles'] as bool? ?? false),
+              canViewReports: Value(remote['can_view_reports'] as bool? ?? false),
+              canManageBranches: Value(remote['can_manage_branches'] as bool? ?? false),
+              isSystemRole: Value(remote['is_system_role'] as bool? ?? false),
+              isActive: Value(remote['is_active'] as bool? ?? true),
+              needsSync: const Value(false),
+            ),
+          );
+          inserted++;
+          print('      ✅ Inserted role: ${remote['name']}');
+        } else {
+          updated++;
         }
       }
+      
+      if (inserted > 0) print('      📥 Inserted $inserted new roles');
+      if (updated > 0) print('      🔄 Found $updated existing roles');
     } catch (e) {
       print('      ❌ Failed to pull roles: $e');
     }
