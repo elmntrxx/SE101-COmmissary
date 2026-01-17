@@ -27,6 +27,7 @@ import 'daos/users_dao.dart';
 import 'daos/categories_dao.dart';
 import 'daos/items_dao.dart';
 import 'daos/ingredients_dao.dart';
+import 'daos/recipe_ingredients_dao.dart';
 import 'daos/stock_replenishment_requests_dao.dart';
 import 'daos/stock_change_requests_dao.dart';
 
@@ -52,19 +53,17 @@ part 'app_database.g.dart';
     CategoriesDao,
     ItemsDao,
     IngredientsDao,
+    RecipeIngredientsDao,
     StockReplenishmentRequestsDao,
     StockChangeRequestsDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
-  final bool _seedData;
   static const _uuid = Uuid();
 
-  AppDatabase({bool seedData = true})
-      : _seedData = seedData,
-        super(_openConnection());
+  AppDatabase() : super(_openConnection());
 
-  AppDatabase.test(super.executor) : _seedData = false;
+  AppDatabase.test(super.executor);
 
   @override
   int get schemaVersion => 1;
@@ -76,10 +75,8 @@ class AppDatabase extends _$AppDatabase {
         print('🗄️ Creating commissary database...');
         await m.createAll();
         await _createIndexes();
-        if (_seedData) {
-          await _seedInitialData();
-        }
         print('✅ Database created successfully!');
+        print('ℹ️ Data will be synced from Supabase on first connection.');
       },
       beforeOpen: (details) async {
         await customStatement('PRAGMA foreign_keys = ON');
@@ -120,126 +117,11 @@ class AppDatabase extends _$AppDatabase {
         'CREATE INDEX IF NOT EXISTS idx_changes_status ON stock_change_requests(status)');
   }
 
-  /// Seed initial data for commissary app
-  Future<void> _seedInitialData() async {
-    print('🌱 Seeding initial data...');
-
-    // Create default roles
-    await _seedRoles();
-
-    // Create commissary organization
-    await _seedCommissaryOrganization();
-
-    // Create admin user
-    await _seedAdminUser();
-
-    print('✅ Initial data seeded!');
-  }
-
-  Future<void> _seedRoles() async {
-    final existingRoles = await select(roles).get();
-    if (existingRoles.isNotEmpty) return;
-
-    final defaultRoles = [
-      RolesCompanion.insert(
-        cloudId: _uuid.v4(),
-        name: 'Commissary Admin',
-        description: const Value('Full access to all commissary features'),
-        canViewInventory: const Value(true),
-        canManageInventory: const Value(true),
-        canManageEmployees: const Value(true),
-        canManageRoles: const Value(true),
-        canViewReports: const Value(true),
-        canManageBranches: const Value(true),
-        isSystemRole: const Value(true),
-      ),
-      RolesCompanion.insert(
-        cloudId: _uuid.v4(),
-        name: 'Branch Admin',
-        description: const Value('Manages a single branch'),
-        canViewInventory: const Value(true),
-        canManageInventory: const Value(true),
-        canManageEmployees: const Value(true),
-        canManageRoles: const Value(false),
-        canViewReports: const Value(true),
-        canManageBranches: const Value(false),
-        isSystemRole: const Value(true),
-      ),
-      RolesCompanion.insert(
-        cloudId: _uuid.v4(),
-        name: 'Employee',
-        description: const Value('Basic inventory access'),
-        canViewInventory: const Value(true),
-        canManageInventory: const Value(false),
-        canManageEmployees: const Value(false),
-        canManageRoles: const Value(false),
-        canViewReports: const Value(false),
-        canManageBranches: const Value(false),
-        isSystemRole: const Value(true),
-      ),
-    ];
-
-    for (final role in defaultRoles) {
-      await into(roles).insert(role);
-    }
-    print('   ✓ Default roles created');
-  }
-
-  Future<void> _seedCommissaryOrganization() async {
-    final existing = await (select(organizations)
-          ..where((o) => o.type.equals('commissary')))
-        .getSingleOrNull();
-    if (existing != null) return;
-
-    await into(organizations).insert(
-      OrganizationsCompanion.insert(
-        cloudId: _uuid.v4(),
-        name: 'Chicken Joo Commissary',
-        type: 'commissary',
-        address: const Value('Main Office Address'),
-        phone: const Value('0000000000'),
-        email: const Value('admin@chickenjoo.com'),
-      ),
-    );
-    print('   ✓ Commissary organization created');
-  }
-
-  Future<void> _seedAdminUser() async {
-    final existingAdmin = await (select(users)
-          ..where((u) => u.email.equals('admin@chickenjoo.com')))
-        .getSingleOrNull();
-    if (existingAdmin != null) return;
-
-    // Get commissary org and admin role
-    final commissary = await (select(organizations)
-          ..where((o) => o.type.equals('commissary')))
-        .getSingle();
-    final adminRole = await (select(roles)
-          ..where((r) => r.name.equals('Commissary Admin')))
-        .getSingle();
-
-    // Hash the password with salt (PBKDF2 format: salt$hash)
-    final passwordHash = _hashPassword('admin123');
-
-    await into(users).insert(
-      UsersCompanion.insert(
-        cloudId: _uuid.v4(),
-        username: 'Administrator',
-        email: 'admin@chickenjoo.com',
-        phone: const Value('0000000000'),
-        passwordHash: passwordHash,
-        organizationId: commissary.id,
-        roleId: adminRole.id,
-      ),
-    );
-    print('   ✓ Admin user created (admin@chickenjoo.com / admin123)');
-  }
-
   /// Generate a new UUID
   String generateUuid() => _uuid.v4();
 
   /// Hash password using PBKDF2 with random salt (format: salt$hash)
-  static String _hashPassword(String password) {
+  static String hashPassword(String password) {
     // Generate random salt
     final random = Random.secure();
     final saltBytes = List<int>.generate(16, (_) => random.nextInt(256));
@@ -276,6 +158,63 @@ class AppDatabase extends _$AppDatabase {
     final hashHex = dk.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
 
     return '$salt\$$hashHex';
+  }
+
+  /// Hash password with a specific salt (for verification)
+  static String _hashPasswordWithSalt(String password, String salt) {
+    const int iterations = 100000;
+    const int keyLength = 32;
+
+    final hmac = Hmac(sha256, utf8.encode(password));
+    final saltBytesEncoded = utf8.encode(salt);
+
+    List<int> int32ToBytes(int i) {
+      return <int>[
+        (i >> 24) & 0xff,
+        (i >> 16) & 0xff,
+        (i >> 8) & 0xff,
+        i & 0xff,
+      ];
+    }
+
+    final blockIndexBytes = int32ToBytes(1);
+    var u = hmac.convert([...saltBytesEncoded, ...blockIndexBytes]).bytes;
+    final List<int> derivedBlock = List<int>.from(u);
+
+    for (int i = 1; i < iterations; i++) {
+      u = hmac.convert(u).bytes;
+      for (int j = 0; j < derivedBlock.length; j++) {
+        derivedBlock[j] ^= u[j];
+      }
+    }
+
+    final dk = derivedBlock.sublist(0, keyLength);
+    final hashHex = dk.map((b) => b.toRadixString(16).padLeft(2, '0')).join();
+
+    return '$salt\$$hashHex';
+  }
+
+  /// Verify a password against a stored PBKDF2 hash
+  /// Returns true if the password matches the stored hash
+  static bool verifyPassword(String password, String storedHash) {
+    final parts = storedHash.split('\$');
+    if (parts.length != 2) {
+      return false;
+    }
+
+    final salt = parts[0];
+    final expectedFullHash = _hashPasswordWithSalt(password, salt);
+
+    // Constant-time comparison to prevent timing attacks
+    if (storedHash.length != expectedFullHash.length) {
+      return false;
+    }
+
+    int result = 0;
+    for (int i = 0; i < storedHash.length; i++) {
+      result |= storedHash.codeUnitAt(i) ^ expectedFullHash.codeUnitAt(i);
+    }
+    return result == 0;
   }
 }
 

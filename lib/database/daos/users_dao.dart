@@ -1,7 +1,5 @@
 // lib/database/daos/users_dao.dart
 import 'package:drift/drift.dart';
-import 'dart:convert';
-import 'package:crypto/crypto.dart';
 import '../app_database.dart';
 import '../tables/users.dart';
 
@@ -10,15 +8,6 @@ part 'users_dao.g.dart';
 @DriftAccessor(tables: [Users])
 class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
   UsersDao(super.db);
-
-  // ============================================================================
-  // PASSWORD HASHING
-  // ============================================================================
-
-  String _hashPassword(String password) {
-    final bytes = utf8.encode(password);
-    return sha256.convert(bytes).toString();
-  }
 
   // ============================================================================
   // QUERIES
@@ -47,40 +36,55 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
   }
 
   /// Get user by ID
-  Future<User?> getUserById(int id) {
-    return (select(users)..where((u) => u.id.equals(id))).getSingleOrNull();
+  Future<User?> getUserById(int id) async {
+    final results = await (select(users)
+          ..where((u) => u.id.equals(id))
+          ..limit(1))
+        .get();
+    return results.isEmpty ? null : results.first;
   }
 
   /// Get user by cloud ID
-  Future<User?> getUserByCloudId(String cloudId) {
-    return (select(users)..where((u) => u.cloudId.equals(cloudId)))
-        .getSingleOrNull();
+  Future<User?> getUserByCloudId(String cloudId) async {
+    final results = await (select(users)
+          ..where((u) => u.cloudId.equals(cloudId))
+          ..limit(1))
+        .get();
+    return results.isEmpty ? null : results.first;
   }
 
   /// Get user by email
-  Future<User?> getUserByEmail(String email) {
-    return (select(users)..where((u) => u.email.equals(email)))
-        .getSingleOrNull();
+  Future<User?> getUserByEmail(String email) async {
+    final results = await (select(users)
+          ..where((u) => u.email.equals(email))
+          ..limit(1))
+        .get();
+    return results.isEmpty ? null : results.first;
   }
 
-  /// Authenticate user with email and password
+  /// Authenticate user with email and password using PBKDF2 verification
   Future<User?> authenticate(String email, String password) async {
-    final hashedPassword = _hashPassword(password);
-    return (select(users)
-          ..where((u) => u.email.equals(email))
-          ..where((u) => u.passwordHash.equals(hashedPassword))
-          ..where((u) => u.isActive.equals(true)))
-        .getSingleOrNull();
+    // First, find user by email
+    final user = await getUserByEmail(email);
+    if (user == null || !user.isActive) {
+      return null;
+    }
+    
+    // Verify password using PBKDF2
+    if (AppDatabase.verifyPassword(password, user.passwordHash)) {
+      return user;
+    }
+    return null;
   }
 
   // ============================================================================
   // MUTATIONS
   // ============================================================================
 
-  /// Create a new user with hashed password
+  /// Create a new user with hashed password using PBKDF2
   Future<int> createUser(UsersCompanion user, String plainPassword) {
     final hashedUser = user.copyWith(
-      passwordHash: Value(_hashPassword(plainPassword)),
+      passwordHash: Value(AppDatabase.hashPassword(plainPassword)),
     );
     return into(users).insert(hashedUser);
   }
@@ -88,11 +92,11 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
   /// Update user (without password)
   Future<bool> updateUser(User user) => update(users).replace(user);
 
-  /// Update user password
+  /// Update user password using PBKDF2
   Future<int> updatePassword(int id, String newPassword) {
     return (update(users)..where((u) => u.id.equals(id))).write(
       UsersCompanion(
-        passwordHash: Value(_hashPassword(newPassword)),
+        passwordHash: Value(AppDatabase.hashPassword(newPassword)),
         updatedAt: Value(DateTime.now()),
         needsSync: const Value(true),
       ),

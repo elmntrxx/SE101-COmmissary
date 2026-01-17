@@ -44,17 +44,24 @@ class OrganizationsDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Get organization by cloud ID
-  Future<Organization?> getOrganizationByCloudId(String cloudId) {
-    return (select(organizations)..where((o) => o.cloudId.equals(cloudId)))
-        .getSingleOrNull();
+  /// Returns the first match if duplicates exist (handles data issues gracefully)
+  Future<Organization?> getOrganizationByCloudId(String cloudId) async {
+    final results = await (select(organizations)
+          ..where((o) => o.cloudId.equals(cloudId))
+          ..limit(1))
+        .get();
+    return results.isEmpty ? null : results.first;
   }
 
   /// Get commissary (the parent organization)
-  Future<Organization?> getCommissary() {
-    return (select(organizations)
+  /// Returns the first active commissary if multiple exist (handles duplicate data gracefully)
+  Future<Organization?> getCommissary() async {
+    final results = await (select(organizations)
           ..where((o) => o.type.equals('commissary'))
-          ..where((o) => o.isActive.equals(true)))
-        .getSingleOrNull();
+          ..where((o) => o.isActive.equals(true))
+          ..limit(1))
+        .get();
+    return results.isEmpty ? null : results.first;
   }
 
   // ============================================================================
