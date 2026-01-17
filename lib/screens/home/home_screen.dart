@@ -12,7 +12,8 @@ import '../../utils/design_constants.dart';
 // Import pages
 import '../branches/branches_page.dart';
 import '../reports/reports_page.dart';
-import '../inventory_management/inventory_management_page.dart';
+import '../inventory/inventory_page.dart';
+import '../ingredients/ingredients_page.dart';
 import '../requests/requests_page.dart';
 import '../settings/settings_page.dart';
 
@@ -71,11 +72,12 @@ class _HomeScreenState extends State<HomeScreen> {
       {
         'icon': Icons.inventory_2,
         'label': 'Inventory',
-        'page': InventoryManagementPage(
-          organizationId: widget.signedInUser.organizationId,
-          commissaryId: widget.signedInUser.organizationId,
-          organizationName: 'Inventory Management',
-        ),
+        'page': const InventoryPage(),
+      },
+      {
+        'icon': Icons.restaurant_menu,
+        'label': 'Ingredients',
+        'page': const IngredientsPage(),
       },
       {
         'icon': Icons.swap_horiz,
@@ -150,21 +152,9 @@ class _HomeScreenState extends State<HomeScreen> {
     );
 
     if (shouldLogout == true && mounted) {
-      try {
-        // Sign out from auth service (clears Supabase session and user state)
-        await authService.signOut();
-        
-        // Clear local preferences
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.remove('loggedInUserId');
-        
-        // Navigate to login screen
-        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-      } catch (e) {
-        print('❌ Error during logout: $e');
-        // Still navigate to login even if logout fails
-        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
-      }
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove('loggedInUserId');
+      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
     }
   }
 
