@@ -22,7 +22,7 @@ void main() async {
   // Desktop window configuration
   if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
     setWindowTitle('Chicken Joo Commissary');
-    setWindowMinSize(const Size(1280, 720));
+    setWindowMinSize(const Size(100, 720));
     setWindowMaxSize(const Size(1920, 1080));
   }
 

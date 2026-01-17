@@ -97,38 +97,107 @@ class _ReportsPageState extends State<ReportsPage> {
 
   @override
   Widget build(BuildContext context) {
-    return _isLoading
-        ? const Center(child: CircularProgressIndicator())
-        : SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Filters
-                _buildFilters(),
-                const SizedBox(height: 24),
+    if (AppLayout.isDesktop(context) == false) {
+      // MOBILE VIEW
+      return Scaffold(
+        backgroundColor: const Color.fromRGBO(238, 238, 238, 1),
+        body: SafeArea(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Reports',
+                            style: TextStyle(fontSize: 26, fontFamily: fontAll),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.notifications_outlined, size: 28),
+                            onPressed: () {},
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
 
-                // Overall stats
-                _buildOverallStats(),
-                const SizedBox(height: 32),
+                      // Mobile Filters
+                      _buildMobileFilters(),
+                      const SizedBox(height: 16),
 
-                // Branch comparison
-                const Text(
-                  'Branch Performance',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    fontFamily: fontAll,
+                      // Mobile Stats
+                      _buildMobileStats(),
+                      const SizedBox(height: 24),
+
+                      // Branch Performance
+                      const Text(
+                        'Branch Performance',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: fontAll,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      _buildMobileBranchComparison(),
+                      const SizedBox(height: 24),
+
+                      // Branch List
+                      if (_selectedBranch == null) ...[
+                        const Text(
+                          'All Branches',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: fontAll,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildMobileBranchList(),
+                      ] else ...[
+                        Text(
+                          '${_selectedBranch!.name}',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            fontFamily: fontAll,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildMobileBranchDetails(_selectedBranch!),
+                      ],
+                    ],
                   ),
                 ),
-                const SizedBox(height: 16),
-                _buildBranchComparison(),
-                const SizedBox(height: 32),
+        ),
+      );
+    }
 
-                // Detailed tables
-                if (_selectedBranch == null) ...[
+    // DESKTOP VIEW
+    return Scaffold(
+      backgroundColor: const Color.fromRGBO(238, 238, 238, 1),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Filters
+                  _buildFilters(),
+                  const SizedBox(height: 24),
+
+                  // Overall stats
+                  _buildOverallStats(),
+                  const SizedBox(height: 32),
+
+                  // Branch comparison
                   const Text(
-                    'All Branches Summary',
+                    'Branch Performance',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
@@ -136,23 +205,40 @@ class _ReportsPageState extends State<ReportsPage> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _buildAllBranchesTable(),
-                ] else ...[
-                  Text(
-                    '${_selectedBranch!.name} Details',
-                    style: const TextStyle(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      fontFamily: fontAll,
+                  _buildBranchComparison(),
+                  const SizedBox(height: 32),
+
+                  // Detailed tables
+                  if (_selectedBranch == null) ...[
+                    const Text(
+                      'All Branches Summary',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: fontAll,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildBranchDetailsTable(_selectedBranch!),
+                    const SizedBox(height: 16),
+                    _buildAllBranchesTable(),
+                  ] else ...[
+                    Text(
+                      '${_selectedBranch!.name} Details',
+                      style: const TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: fontAll,
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    _buildBranchDetailsTable(_selectedBranch!),
+                  ],
                 ],
-              ],
+              ),
             ),
-          );
+    );
   }
+
+  // DESKTOP WIDGETS
 
   Widget _buildFilters() {
     return Row(
@@ -530,6 +616,443 @@ class _ReportsPageState extends State<ReportsPage> {
           ]);
         }).toList(),
       ),
+    );
+  }
+
+  // MOBILE WIDGETS
+
+  Widget _buildMobileFilters() {
+    return Column(
+      children: [
+        // Branch filter
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<Organization?>(
+              value: _selectedBranch,
+              isExpanded: true,
+              hint: const Text('All Branches'),
+              items: [
+                const DropdownMenuItem<Organization?>(
+                  value: null,
+                  child: Text('All Branches'),
+                ),
+                ..._branches.map((branch) => DropdownMenuItem(
+                      value: branch,
+                      child: Text(branch.name),
+                    )),
+              ],
+              onChanged: (value) {
+                setState(() => _selectedBranch = value);
+              },
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Period filter
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.grey.shade300),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String>(
+              value: _selectedPeriod,
+              isExpanded: true,
+              items: ['Today', 'This Week', 'This Month', 'This Year']
+                  .map((p) => DropdownMenuItem(value: p, child: Text(p)))
+                  .toList(),
+              onChanged: (value) {
+                setState(() => _selectedPeriod = value!);
+              },
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileStats() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _buildMobileStatCard(
+                title: 'Branches',
+                value: '${_branches.length}',
+                icon: Icons.store,
+                color: Colors.blue,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildMobileStatCard(
+                title: 'Items',
+                value: '$_totalItems',
+                icon: Icons.inventory,
+                color: Colors.green,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _buildMobileStatCard(
+                title: 'Sold',
+                value: '$_totalSold',
+                icon: Icons.shopping_cart,
+                color: Colors.purple,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _buildMobileStatCard(
+                title: 'Spoilage',
+                value: '$_totalSpoilage',
+                icon: Icons.delete_forever,
+                color: Colors.orange,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _buildMobileStatCard(
+          title: 'Low Stock Alerts',
+          value: '$_lowStockCount',
+          icon: Icons.warning,
+          color: Colors.red,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileStatCard({
+    required String title,
+    required String value,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: fontAll,
+                  ),
+                ),
+                Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 12,
+                    fontFamily: fontAll,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileBranchComparison() {
+    if (_branches.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Text(
+            'No branches to compare',
+            style: TextStyle(color: Colors.grey),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      height: 150,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: _branches.map((branch) {
+          final stats = _branchStats[branch.id] ?? {};
+          final sold = stats['sold'] ?? 0;
+          final maxSold = _totalSold > 0 ? _totalSold : 1;
+          final percentage = (sold / maxSold * 100).toInt();
+
+          return Expanded(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  Text(
+                    '$sold',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade200,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: FractionallySizedBox(
+                        alignment: Alignment.bottomCenter,
+                        heightFactor: percentage / 100,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                const Color(0xFFEF4848),
+                                const Color(0xFFEF4848).withOpacity(0.7),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    branch.name,
+                    style: const TextStyle(fontSize: 10),
+                    textAlign: TextAlign.center,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildMobileBranchList() {
+    return Column(
+      children: _branches.map((branch) {
+        final stats = _branchStats[branch.id] ?? {};
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      branch.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: fontAll,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: branch.isActive
+                          ? Colors.green.shade100
+                          : Colors.red.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      branch.isActive ? 'Active' : 'Inactive',
+                      style: TextStyle(
+                        color: branch.isActive ? Colors.green : Colors.red,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildMobileStat('Items', '${stats['itemCount'] ?? 0}'),
+                  _buildMobileStat('Sold', '${stats['sold'] ?? 0}'),
+                  _buildMobileStat('Spoilage', '${stats['spoilage'] ?? 0}'),
+                  _buildMobileStat('Low Stock', '${stats['lowStock'] ?? 0}',
+                      hasWarning: (stats['lowStock'] ?? 0) > 0),
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildMobileStat(String label, String value, {bool hasWarning = false}) {
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (hasWarning)
+              const Icon(Icons.warning, color: Colors.orange, size: 14),
+            if (hasWarning) const SizedBox(width: 4),
+            Text(
+              value,
+              style: const TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            color: Colors.grey,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildMobileBranchDetails(Organization branch) {
+    final items = _branchItems[branch.id] ?? [];
+
+    if (items.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Text('No items found for this branch'),
+        ),
+      );
+    }
+
+    return Column(
+      children: items.map((item) {
+        final isLowStock = item.stock <= item.criticalLevel;
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: fontAll,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: isLowStock
+                          ? Colors.orange.shade100
+                          : Colors.green.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      isLowStock ? 'Low Stock' : 'OK',
+                      style: TextStyle(
+                        color: isLowStock ? Colors.orange : Colors.green,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                children: [
+                  _buildMobileStat('Stock', '${item.stock}', hasWarning: isLowStock),
+                  _buildMobileStat('Sold', '${item.sold}'),
+                  _buildMobileStat('Spoilage', '${item.spoilage}'),
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
 }

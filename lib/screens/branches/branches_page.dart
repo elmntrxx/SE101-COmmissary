@@ -84,7 +84,7 @@ class _BranchesPageState extends State<BranchesPage> {
           children: [
             Icon(Icons.add_business, color: Color(0xFFEF4848)),
             SizedBox(width: 12),
-            Text('Create New Branch', style: TextStyle(fontFamily: fontAll)),
+            Text('Create New Branch', style: TextStyle(fontFamily: fontAll, fontSize: 20)),
           ],
         ),
         content: SizedBox(
@@ -215,7 +215,7 @@ class _BranchesPageState extends State<BranchesPage> {
             children: [
               Icon(Icons.person_add, color: Color(0xFFEF4848)),
               SizedBox(width: 12),
-              Text('Create Branch Admin', style: TextStyle(fontFamily: fontAll)),
+              Text('Create Branch Admin', style: TextStyle(fontFamily: fontAll, fontSize: 20)),
             ],
           ),
           content: SizedBox(
@@ -395,56 +395,117 @@ class _BranchesPageState extends State<BranchesPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Header with actions
-          Row(
-            children: [
-              // Tabs
-              _buildTab('Branches', 0),
-              const SizedBox(width: 16),
-              _buildTab('Branch Admins', 1),
-              const Spacer(),
-              // Action buttons
-              if (_selectedTab == 0)
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.add_business),
-                  label: const Text('Add Branch'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFEF4848),
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: _showCreateBranchDialog,
-                ),
-              if (_selectedTab == 1)
-                ElevatedButton.icon(
-                  icon: const Icon(Icons.person_add),
-                  label: const Text('Add Branch Admin'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFFEF4848),
-                    foregroundColor: Colors.white,
-                  ),
-                  onPressed: _branches.isEmpty ? null : () => _showCreateBranchAdminDialog(),
-                ),
-            ],
-          ),
-          const SizedBox(height: 24),
+    if (AppLayout.isDesktop(context) == false) {
+      // MOBILE VIEW
+      return Scaffold(
+        backgroundColor: const Color.fromRGBO(238, 238, 238, 1),
+        body: SafeArea(
+          child: _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Header
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          const Text(
+                            'Branches',
+                            style: TextStyle(fontSize: 26, fontFamily: fontAll),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.notifications_outlined, size: 28),
+                            onPressed: () {},
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
 
-          // Content
-          Expanded(
-            child: _isLoading
-                ? const Center(child: CircularProgressIndicator())
-                : _selectedTab == 0
-                    ? _buildBranchesTab()
-                    : _buildAdminsTab(),
-          ),
-        ],
+                      // Mobile Tabs
+                      _buildMobileTabs(),
+                      const SizedBox(height: 16),
+
+                      // Content
+                      Expanded(
+                        child: _selectedTab == 0
+                            ? _buildMobileBranchesTab()
+                            : _buildMobileAdminsTab(),
+                      ),
+                    ],
+                  ),
+                ),
+        ),
+        floatingActionButton: _isLoading
+            ? null
+            : FloatingActionButton(
+                backgroundColor: const Color(0xFFEF4848),
+                onPressed: _selectedTab == 0
+                    ? _showCreateBranchDialog
+                    : (_branches.isEmpty ? null : () => _showCreateBranchAdminDialog()),
+                child: const Icon(Icons.add, color: Colors.white),
+              ),
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      );
+    }
+
+    // DESKTOP VIEW
+    return Scaffold(
+      backgroundColor: const Color.fromRGBO(238, 238, 238, 1),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with actions
+            Row(
+              children: [
+                // Tabs
+                _buildTab('Branches', 0),
+                const SizedBox(width: 16),
+                _buildTab('Branch Admins', 1),
+                const Spacer(),
+                // Action buttons
+                if (_selectedTab == 0)
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.add_business),
+                    label: const Text('Add Branch'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFEF4848),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: _showCreateBranchDialog,
+                  ),
+                if (_selectedTab == 1)
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.person_add),
+                    label: const Text('Add Branch Admin'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFEF4848),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: _branches.isEmpty ? null : () => _showCreateBranchAdminDialog(),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 24),
+
+            // Content
+            Expanded(
+              child: _isLoading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _selectedTab == 0
+                      ? _buildBranchesTab()
+                      : _buildAdminsTab(),
+            ),
+          ],
+        ),
       ),
     );
   }
+
+  // DESKTOP WIDGETS
 
   Widget _buildTab(String label, int index) {
     final isSelected = _selectedTab == index;
@@ -488,7 +549,7 @@ class _BranchesPageState extends State<BranchesPage> {
         crossAxisCount: 3,
         crossAxisSpacing: 16,
         mainAxisSpacing: 16,
-        childAspectRatio: 1.2,
+        childAspectRatio: 1.35, // Increased from 1.2 to give more height
       ),
       itemCount: _branches.length,
       itemBuilder: (context, index) {
@@ -502,7 +563,7 @@ class _BranchesPageState extends State<BranchesPage> {
 
   Widget _buildBranchCard(Organization branch, List<User> users) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16), // Reduced from 20 to 16
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -516,6 +577,7 @@ class _BranchesPageState extends State<BranchesPage> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // Added to prevent overflow
         children: [
           Row(
             children: [
@@ -545,18 +607,20 @@ class _BranchesPageState extends State<BranchesPage> {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          Text(
-            branch.name,
-            style: const TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.bold,
-              fontFamily: fontAll,
+          const SizedBox(height: 12), // Reduced from 16
+          Flexible( // Made flexible instead of fixed
+            child: Text(
+              branch.name,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                fontFamily: fontAll,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 6), // Reduced from 8
           if (branch.address != null)
             Row(
               children: [
@@ -585,6 +649,8 @@ class _BranchesPageState extends State<BranchesPage> {
               IconButton(
                 icon: const Icon(Icons.person_add, size: 20),
                 tooltip: 'Add Admin',
+                padding: EdgeInsets.zero, // Reduced padding
+                constraints: const BoxConstraints(), // Remove default constraints
                 onPressed: () => _showCreateBranchAdminDialog(preselectedBranch: branch),
               ),
             ],
@@ -723,6 +789,367 @@ class _BranchesPageState extends State<BranchesPage> {
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
             onPressed: onPressed,
+          ),
+        ],
+      ),
+    );
+  }
+
+  // MOBILE WIDGETS
+
+  Widget _buildMobileTabs() {
+    return Container(
+      height: 42,
+      decoration: BoxDecoration(
+        color: Colors.grey[300],
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedTab = 0),
+              child: Container(
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _selectedTab == 0 ? Colors.white : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    bottomLeft: Radius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Branches',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontFamily: fontAll),
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            child: GestureDetector(
+              onTap: () => setState(() => _selectedTab = 1),
+              child: Container(
+                height: 42,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: _selectedTab == 1 ? Colors.white : Colors.transparent,
+                  borderRadius: const BorderRadius.only(
+                    topRight: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  'Admins',
+                  style: TextStyle(fontWeight: FontWeight.w600, fontFamily: fontAll),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileBranchesTab() {
+    if (_branches.isEmpty) {
+      return _buildMobileEmptyState(
+        icon: Icons.store_mall_directory,
+        title: 'No Branches Yet',
+        subtitle: 'Create your first branch to get started',
+      );
+    }
+
+    return ListView.builder(
+      itemCount: _branches.length,
+      itemBuilder: (context, index) {
+        final branch = _branches[index];
+        final users = _branchUsers[branch.id] ?? [];
+
+        return _buildMobileBranchCard(branch, users);
+      },
+    );
+  }
+
+  Widget _buildMobileBranchCard(Organization branch, List<User> users) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.store, color: Colors.green, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  branch.name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    fontFamily: fontAll,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: branch.isActive ? Colors.green.shade100 : Colors.red.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  branch.isActive ? 'Active' : 'Inactive',
+                  style: TextStyle(
+                    color: branch.isActive ? Colors.green : Colors.red,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (branch.address != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                const Icon(Icons.location_on, size: 14, color: Colors.grey),
+                const SizedBox(width: 4),
+                Expanded(
+                  child: Text(
+                    branch.address!,
+                    style: const TextStyle(color: Colors.grey, fontSize: 12),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ],
+          if (branch.phone != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.phone, size: 14, color: Colors.grey),
+                const SizedBox(width: 4),
+                Text(
+                  branch.phone!,
+                  style: const TextStyle(color: Colors.grey, fontSize: 12),
+                ),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Icon(Icons.people, size: 16, color: Colors.grey),
+              const SizedBox(width: 4),
+              Text(
+                '${users.length} users',
+                style: const TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+              const Spacer(),
+              TextButton.icon(
+                icon: const Icon(Icons.person_add, size: 16),
+                label: const Text('Add Admin', style: TextStyle(fontSize: 12)),
+                style: TextButton.styleFrom(
+                  foregroundColor: const Color(0xFFEF4848),
+                ),
+                onPressed: () => _showCreateBranchAdminDialog(preselectedBranch: branch),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileAdminsTab() {
+    final allAdmins = <Map<String, dynamic>>[];
+    for (final branch in _branches) {
+      final users = _branchUsers[branch.id] ?? [];
+      for (final user in users) {
+        allAdmins.add({'user': user, 'branch': branch});
+      }
+    }
+
+    if (allAdmins.isEmpty) {
+      return _buildMobileEmptyState(
+        icon: Icons.admin_panel_settings,
+        title: 'No Branch Admins Yet',
+        subtitle: 'Create a branch first, then add admins',
+      );
+    }
+
+    return ListView.builder(
+      itemCount: allAdmins.length,
+      itemBuilder: (context, index) {
+        final data = allAdmins[index];
+        final user = data['user'] as User;
+        final branch = data['branch'] as Organization;
+
+        return _buildMobileAdminCard(user, branch);
+      },
+    );
+  }
+
+  Widget _buildMobileAdminCard(User user, Organization branch) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.blue.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.person, color: Colors.blue, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      user.username,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        fontFamily: fontAll,
+                      ),
+                    ),
+                    Text(
+                      user.email,
+                      style: const TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: user.isActive ? Colors.green.shade100 : Colors.red.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  user.isActive ? 'Active' : 'Inactive',
+                  style: TextStyle(
+                    color: user.isActive ? Colors.green : Colors.red,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.blue.shade50,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.store, size: 14, color: Colors.blue),
+                const SizedBox(width: 4),
+                Text(
+                  branch.name,
+                  style: TextStyle(
+                    color: Colors.blue.shade700,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton.icon(
+                icon: const Icon(Icons.edit, size: 16),
+                label: const Text('Edit', style: TextStyle(fontSize: 12)),
+                onPressed: () {},
+              ),
+              TextButton.icon(
+                icon: Icon(
+                  user.isActive ? Icons.block : Icons.check_circle,
+                  size: 16,
+                  color: user.isActive ? Colors.red : Colors.green,
+                ),
+                label: Text(
+                  user.isActive ? 'Deactivate' : 'Activate',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: user.isActive ? Colors.red : Colors.green,
+                  ),
+                ),
+                onPressed: () {},
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMobileEmptyState({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+  }) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 60, color: Colors.grey.shade300),
+          const SizedBox(height: 16),
+          Text(
+            title,
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+              fontFamily: fontAll,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            subtitle,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 14),
+            textAlign: TextAlign.center,
           ),
         ],
       ),

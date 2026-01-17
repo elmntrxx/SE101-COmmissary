@@ -1,4 +1,4 @@
-// lib/screens/home/home_screen.dart
+// lib/screens/home/home.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../app_globals.dart';
@@ -23,10 +23,10 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.signedInUser});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  State<HomeScreen> createState() => HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class HomeScreenState extends State<HomeScreen> {
   late AppDatabase _db;
   late ConnectivityService _connectivityService;
   
@@ -34,8 +34,8 @@ class _HomeScreenState extends State<HomeScreen> {
   int selectedIndex = 0;
   bool isSideBarOpen = false;
   bool showLabels = false;
-  bool _isOnline = true;
-  SyncStatus _syncStatus = SyncStatus.synced;
+  bool isOnline = true;
+  SyncStatus syncStatus = SyncStatus.synced;
 
   List<Map<String, dynamic>> menuItems = [];
 
@@ -49,10 +49,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _initConnectivity() {
     _connectivityService = ConnectivityService();
-    _connectivityService.connectionStream.listen((isOnline) {
+    _connectivityService.connectionStream.listen((online) {
       setState(() {
-        _isOnline = isOnline;
-        _syncStatus = isOnline ? SyncStatus.synced : SyncStatus.offline;
+        isOnline = online;
+        syncStatus = online ? SyncStatus.synced : SyncStatus.offline;
       });
     });
   }
@@ -105,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  void _toggleSidebar() {
+  void toggleSidebar() {
     setState(() {
       isSideBarOpen = !isSideBarOpen;
       showLabels = false;
@@ -118,7 +118,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  void _switchPage(int index) {
+  void switchPage(int index) {
     setState(() {
       selectedIndex = index;
       currentPage = menuItems[index]['page'];
@@ -127,7 +127,7 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Future<void> _handleLogout() async {
+  Future<void> handleLogout() async {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -158,8 +158,185 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  Future<void> triggerManualSync() async {
+    setState(() {
+      syncStatus = SyncStatus.syncing;
+    });
+
+    // Simulate sync operation
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (mounted) {
+      setState(() {
+        syncStatus = isOnline ? SyncStatus.synced : SyncStatus.offline;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Determine if we're on mobile or desktop based on screen width
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 800;
+
+    if (isMobile) {
+      return _buildMobileScaffold();
+    } else {
+      return _buildDesktopScaffold();
+    }
+  }
+
+  // Mobile Scaffold
+  Widget _buildMobileScaffold() {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.red.shade400,
+        elevation: 3,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          menuItems.isNotEmpty ? menuItems[selectedIndex]['label'] : '',
+          style: const TextStyle(
+            color: Colors.white,
+            fontFamily: fontAll,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          // Connection Status Indicator
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ConnectionStatusIndicator(
+              isOnline: isOnline,
+              syncStatus: syncStatus,
+              onSyncPressed: triggerManualSync,
+            ),
+          ),
+          
+          // Profile Menu with Logout
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: PopupMenuButton<String>(
+              icon: const Icon(
+                Icons.account_circle,
+                color: Colors.white,
+                size: 28,
+              ),
+              onSelected: (value) {
+                if (value == 'logout') {
+                  handleLogout();
+                } else if (value == 'profile') {
+                  // Navigate to profile page
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'profile',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person, size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        widget.signedInUser.username,
+                        style: const TextStyle(fontFamily: fontAll),
+                      ),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'logout',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout, size: 20, color: Colors.red),
+                      SizedBox(width: 12),
+                      Text(
+                        'Logout',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontFamily: fontAll,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      body: currentPage ?? const SizedBox.shrink(),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(color: Colors.red.shade400),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(imageAll, height: 60),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Inventory System",
+                    style: TextStyle(
+                      fontFamily: fontAll,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 20,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Menu items
+            ...List.generate(menuItems.length, (index) {
+              final bool isActive = selectedIndex == index;
+
+              return ListTile(
+                leading: Icon(
+                  menuItems[index]["icon"],
+                  color: isActive ? Colors.red : Colors.black,
+                ),
+                title: Text(
+                  menuItems[index]["label"],
+                  style: TextStyle(
+                    color: isActive ? Colors.red : Colors.black,
+                    fontFamily: fontAll,
+                    fontWeight: isActive
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                  ),
+                ),
+                tileColor: isActive ? Colors.red.withValues(alpha: 0.08) : null,
+                selected: isActive,
+                onTap: () {
+                  Navigator.pop(context);
+                  switchPage(index);
+                },
+              );
+            }),
+            // Logout button in drawer
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text(
+                'Logout',
+                style: TextStyle(color: Colors.red, fontFamily: fontAll),
+              ),
+              onTap: () {
+                Navigator.pop(context); // Close drawer
+                handleLogout();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Desktop Scaffold
+  Widget _buildDesktopScaffold() {
     return Scaffold(
       body: Row(
         children: [
@@ -250,7 +427,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   icon: item['icon'],
                   label: item['label'],
                   isSelected: isSelected,
-                  onTap: () => _switchPage(index),
+                  onTap: () => switchPage(index),
                 );
               },
             ),
@@ -262,7 +439,7 @@ class _HomeScreenState extends State<HomeScreen> {
               isSideBarOpen ? Icons.chevron_left : Icons.chevron_right,
               color: Colors.white,
             ),
-            onPressed: _toggleSidebar,
+            onPressed: toggleSidebar,
           ),
           const SizedBox(height: 8),
         ],
@@ -346,8 +523,9 @@ class _HomeScreenState extends State<HomeScreen> {
           
           // Connection status
           ConnectionStatusIndicator(
-            isOnline: _isOnline,
-            syncStatus: _syncStatus,
+            isOnline: isOnline,
+            syncStatus: syncStatus,
+            onSyncPressed: triggerManualSync,
           ),
           
           const SizedBox(width: 16),
@@ -374,7 +552,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             onSelected: (value) {
               if (value == 'logout') {
-                _handleLogout();
+                handleLogout();
               }
             },
             itemBuilder: (context) => [
@@ -384,7 +562,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     const Icon(Icons.person, size: 20),
                     const SizedBox(width: 12),
-                    Text(widget.signedInUser.email),
+                    Text(
+                      widget.signedInUser.email,
+                      style: const TextStyle(fontFamily: fontAll),
+                    ),
                   ],
                 ),
               ),
@@ -395,7 +576,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   children: [
                     Icon(Icons.logout, size: 20, color: Colors.red),
                     SizedBox(width: 12),
-                    Text('Logout', style: TextStyle(color: Colors.red)),
+                    Text(
+                      'Logout',
+                      style: TextStyle(color: Colors.red, fontFamily: fontAll),
+                    ),
                   ],
                 ),
               ),
@@ -433,39 +617,46 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 32),
           
           // Stats cards
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 4,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.5,
-            children: [
-              _buildStatCard(
-                title: 'Active Branches',
-                value: '0',
-                icon: Icons.store,
-                color: Colors.blue,
-              ),
-              _buildStatCard(
-                title: 'Total Items',
-                value: '0',
-                icon: Icons.inventory,
-                color: Colors.green,
-              ),
-              _buildStatCard(
-                title: 'Pending Requests',
-                value: '0',
-                icon: Icons.pending_actions,
-                color: Colors.orange,
-              ),
-              _buildStatCard(
-                title: 'Low Stock Alerts',
-                value: '0',
-                icon: Icons.warning,
-                color: Colors.red,
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final crossAxisCount = constraints.maxWidth > 1200 ? 4 : 
+                                      constraints.maxWidth > 800 ? 2 : 1;
+              
+              return GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.5,
+                children: [
+                  _buildStatCard(
+                    title: 'Active Branches',
+                    value: '0',
+                    icon: Icons.store,
+                    color: Colors.blue,
+                  ),
+                  _buildStatCard(
+                    title: 'Total Items',
+                    value: '0',
+                    icon: Icons.inventory,
+                    color: Colors.green,
+                  ),
+                  _buildStatCard(
+                    title: 'Pending Requests',
+                    value: '0',
+                    icon: Icons.pending_actions,
+                    color: Colors.orange,
+                  ),
+                  _buildStatCard(
+                    title: 'Low Stock Alerts',
+                    value: '0',
+                    icon: Icons.warning,
+                    color: Colors.red,
+                  ),
+                ],
+              );
+            },
           ),
           
           const SizedBox(height: 32),
@@ -488,22 +679,22 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildQuickAction(
                 icon: Icons.add_business,
                 label: 'Add Branch',
-                onTap: () => _switchPage(1), // Navigate to Branches
+                onTap: () => switchPage(1), // Navigate to Branches
               ),
               _buildQuickAction(
                 icon: Icons.add_box,
                 label: 'Add Item',
-                onTap: () => _switchPage(2), // Navigate to Inventory
+                onTap: () => switchPage(2), // Navigate to Inventory
               ),
               _buildQuickAction(
                 icon: Icons.person_add,
                 label: 'Add Branch Admin',
-                onTap: () => _switchPage(1), // Navigate to Branches
+                onTap: () => switchPage(1), // Navigate to Branches
               ),
               _buildQuickAction(
                 icon: Icons.assessment,
                 label: 'View Reports',
-                onTap: () => _switchPage(5), // Navigate to Reports
+                onTap: () => switchPage(5), // Navigate to Reports
               ),
             ],
           ),
