@@ -10,7 +10,7 @@ class ConnectionStatusIndicator extends StatelessWidget {
   const ConnectionStatusIndicator({
     super.key,
     required this.isOnline,
-    required this.syncStatus,
+    required this.syncStatus, required Future<void> Function() onSyncPressed,
   });
 
   @override

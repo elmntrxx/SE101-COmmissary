@@ -39,58 +39,229 @@ class _InventoryManagementPageState extends State<InventoryManagementPage>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          children: [
-            const Icon(Icons.inventory, size: 28),
-            const SizedBox(width: 12),
-            Text(
-              widget.organizationName,
-              style: const TextStyle(
-                fontFamily: fontAll,
-                fontWeight: FontWeight.bold,
+    final isDesktop = AppLayout.isDesktop(context);
+
+    if (isDesktop) {
+      // DESKTOP VIEW
+      return Scaffold(
+        appBar: AppBar(
+          title: Row(
+            children: [
+              const Icon(Icons.inventory, size: 28),
+              const SizedBox(width: 12),
+              Text(
+                widget.organizationName,
+                style: const TextStyle(
+                  fontFamily: fontAll,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-          ],
-        ),
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        elevation: 1,
-        bottom: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(
-              icon: Icon(Icons.kitchen),
-              text: 'Ingredients',
-            ),
-            Tab(
-              icon: Icon(Icons.fastfood),
-              text: 'Products',
-            ),
-          ],
-          labelColor: Colors.blue,
-          unselectedLabelColor: Colors.grey,
-          indicatorColor: Colors.blue,
-        ),
-        actions: [
-          // Help button
-          IconButton(
-            icon: const Icon(Icons.help_outline),
-            tooltip: 'Help',
-            onPressed: () => _showHelpDialog(context),
+            ],
           ),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: TabBarView(
-        controller: _tabController,
-        children: [
-          // Ingredients Tab
-          IngredientsTab(commissaryId: widget.commissaryId),
-          // Products Tab
-          ProductsTab(organizationId: widget.organizationId),
-        ],
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black87,
+          elevation: 1,
+          bottom: TabBar(
+            controller: _tabController,
+            tabs: const [
+              Tab(
+                icon: Icon(Icons.kitchen),
+                text: 'Ingredients',
+              ),
+              Tab(
+                icon: Icon(Icons.fastfood),
+                text: 'Products',
+              ),
+            ],
+            labelColor: Colors.blue,
+            unselectedLabelColor: Colors.grey,
+            indicatorColor: Colors.blue,
+          ),
+          actions: [
+            // Help button
+            IconButton(
+              icon: const Icon(Icons.help_outline),
+              tooltip: 'Help',
+              onPressed: () => _showHelpDialog(context),
+            ),
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            // Ingredients Tab
+            IngredientsTab(commissaryId: widget.commissaryId),
+            // Products Tab
+            ProductsTab(organizationId: widget.organizationId),
+          ],
+        ),
+      );
+    }
+
+    // MOBILE VIEW
+    return Scaffold(
+      backgroundColor: const Color.fromRGBO(238, 238, 238, 1),
+      body: SafeArea(
+        child: SizedBox(
+          width: MediaQuery.of(context).size.width,
+          child: Column(
+            children: [
+              // Mobile Header
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.organizationName,
+                            style: const TextStyle(
+                              fontSize: 26,
+                              fontFamily: fontAll,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.help_outline, size: 28),
+                              onPressed: () => _showHelpDialog(context),
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.notifications_outlined, size: 28),
+                              onPressed: () {},
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    // Mobile Tabs
+                    Container(
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[300],
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _tabController.animateTo(0),
+                              child: Container(
+                                height: 42,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: _tabController.index == 0
+                                      ? Colors.white
+                                      : Colors.transparent,
+                                  borderRadius: const BorderRadius.only(
+                                    topLeft: Radius.circular(12),
+                                    bottomLeft: Radius.circular(12),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.kitchen,
+                                      size: 18,
+                                      color: _tabController.index == 0
+                                          ? Colors.blue
+                                          : Colors.grey,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        'Ingredients',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontFamily: fontAll,
+                                          color: _tabController.index == 0
+                                              ? Colors.blue
+                                              : Colors.grey,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: GestureDetector(
+                              onTap: () => _tabController.animateTo(1),
+                              child: Container(
+                                height: 42,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: _tabController.index == 1
+                                      ? Colors.white
+                                      : Colors.transparent,
+                                  borderRadius: const BorderRadius.only(
+                                    topRight: Radius.circular(12),
+                                    bottomRight: Radius.circular(12),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.fastfood,
+                                      size: 18,
+                                      color: _tabController.index == 1
+                                          ? Colors.blue
+                                          : Colors.grey,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Flexible(
+                                      child: Text(
+                                        'Products',
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontFamily: fontAll,
+                                          color: _tabController.index == 1
+                                              ? Colors.blue
+                                              : Colors.grey,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Tab Content
+              Expanded(
+                child: TabBarView(
+                  controller: _tabController,
+                  children: [
+                    // Ingredients Tab
+                    IngredientsTab(commissaryId: widget.commissaryId),
+                    // Products Tab
+                    ProductsTab(organizationId: widget.organizationId),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

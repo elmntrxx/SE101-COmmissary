@@ -1,4 +1,4 @@
-// lib/screens/home/home_screen.dart
+// lib/screens/home/home.dart
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../app_globals.dart';
@@ -12,7 +12,9 @@ import '../../utils/design_constants.dart';
 // Import pages
 import '../branches/branches_page.dart';
 import '../reports/reports_page.dart';
+import '../inventory/inventory_page.dart';
 import '../inventory_management/inventory_management_page.dart';
+import '../ingredients/ingredients_page.dart';
 import '../requests/requests_page.dart';
 import '../settings/settings_page.dart';
 
@@ -31,9 +33,10 @@ class _HomeScreenState extends State<HomeScreen> {
   
   Widget? currentPage;
   int selectedIndex = 0;
-  bool isSideBarOpen = true;
-  bool _isOnline = true;
-  SyncStatus _syncStatus = SyncStatus.synced;
+  bool isSideBarOpen = false;
+  bool showLabels = false;
+  bool isOnline = true;
+  SyncStatus syncStatus = SyncStatus.synced;
 
   List<Map<String, dynamic>> menuItems = [];
 
@@ -47,11 +50,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _initConnectivity() {
     _connectivityService = ConnectivityService();
-    _connectivityService.connectionStream.listen((isOnline) {
-      setState(() {
-        _isOnline = isOnline;
-        _syncStatus = isOnline ? SyncStatus.synced : SyncStatus.offline;
-      });
+    _connectivityService.connectionStream.listen((online) {
+      if (mounted) {
+        setState(() {
+          isOnline = online;
+          syncStatus = online ? SyncStatus.synced : SyncStatus.offline;
+        });
+      }
     });
   }
 
@@ -75,6 +80,11 @@ class _HomeScreenState extends State<HomeScreen> {
           commissaryId: widget.signedInUser.organizationId,
           organizationName: 'Inventory Management',
         ),
+      },
+      {
+        'icon': Icons.restaurant_menu,
+        'label': 'Ingredients',
+        'page': const IngredientsPage(),
       },
       {
         'icon': Icons.swap_horiz,
@@ -102,14 +112,29 @@ class _HomeScreenState extends State<HomeScreen> {
     super.dispose();
   }
 
-  void _switchPage(int index) {
+  void toggleSidebar() {
     setState(() {
-      selectedIndex = index;
-      currentPage = menuItems[index]['page'];
+      isSideBarOpen = !isSideBarOpen;
+      showLabels = false;
+    });
+
+    Future.delayed(const Duration(milliseconds: 200), () {
+      if (mounted && isSideBarOpen) {
+        setState(() => showLabels = true);
+      }
     });
   }
 
-  Future<void> _handleLogout() async {
+  void switchPage(int index) {
+    setState(() {
+      selectedIndex = index;
+      currentPage = menuItems[index]['page'];
+      isSideBarOpen = false;
+      showLabels = false;
+    });
+  }
+
+  Future<void> handleLogout() async {
     final shouldLogout = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -143,39 +168,309 @@ class _HomeScreenState extends State<HomeScreen> {
         await prefs.remove('loggedInUserId');
         
         // Navigate to login screen
-        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+        }
       } catch (e) {
         print('❌ Error during logout: $e');
         // Still navigate to login even if logout fails
-        Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+        }
       }
+    }
+  }
+
+  Future<void> triggerManualSync() async {
+    setState(() {
+      syncStatus = SyncStatus.syncing;
+    });
+
+    // Simulate sync operation
+    await Future.delayed(const Duration(seconds: 2));
+
+    if (mounted) {
+      setState(() {
+        syncStatus = isOnline ? SyncStatus.synced : SyncStatus.offline;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Determine if we're on mobile or desktop based on screen width
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 800;
+
+    if (isMobile) {
+      return _buildMobileScaffold();
+    } else {
+      return _buildDesktopScaffold();
+    }
+  }
+
+  // Mobile Scaffold
+  Widget _buildMobileScaffold() {
     return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.red.shade400,
+        elevation: 3,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.white),
+        title: Text(
+          menuItems.isNotEmpty ? menuItems[selectedIndex]['label'] : '',
+          style: const TextStyle(
+            color: Colors.white,
+            fontFamily: fontAll,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        actions: [
+          // Connection Status Indicator
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ConnectionStatusIndicator(
+              isOnline: isOnline,
+              syncStatus: syncStatus,
+              onSyncPressed: triggerManualSync,
+            ),
+          ),
+          
+          // Profile Menu with Logout
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: PopupMenuButton<String>(
+              icon: const Icon(
+                Icons.account_circle,
+                color: Colors.white,
+                size: 28,
+              ),
+              onSelected: (value) {
+                if (value == 'logout') {
+                  handleLogout();
+                } else if (value == 'profile') {
+                  // Navigate to profile page
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'profile',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person, size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        widget.signedInUser.username,
+                        style: const TextStyle(fontFamily: fontAll),
+                      ),
+                    ],
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'logout',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout, size: 20, color: Colors.red),
+                      SizedBox(width: 12),
+                      Text(
+                        'Logout',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontFamily: fontAll,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+      body: currentPage ?? const SizedBox.shrink(),
+      drawer: Drawer(
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: BoxDecoration(color: Colors.red.shade400),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Image.asset(imageAll, height: 60),
+                  const SizedBox(height: 10),
+                  const Text(
+                    "Inventory System",
+                    style: TextStyle(
+                      fontFamily: fontAll,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 20,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Menu items
+            ...List.generate(menuItems.length, (index) {
+              final bool isActive = selectedIndex == index;
+
+              return ListTile(
+                leading: Icon(
+                  menuItems[index]["icon"],
+                  color: isActive ? Colors.red : Colors.black,
+                ),
+                title: Text(
+                  menuItems[index]["label"],
+                  style: TextStyle(
+                    color: isActive ? Colors.red : Colors.black,
+                    fontFamily: fontAll,
+                    fontWeight: isActive
+                        ? FontWeight.w600
+                        : FontWeight.normal,
+                  ),
+                ),
+                tileColor: isActive ? Colors.red.withValues(alpha: 0.08) : null,
+                selected: isActive,
+                onTap: () {
+                  Navigator.pop(context);
+                  switchPage(index);
+                },
+              );
+            }),
+            // Logout button in drawer
+            const Divider(),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.red),
+              title: const Text(
+                'Logout',
+                style: TextStyle(color: Colors.red, fontFamily: fontAll),
+              ),
+              onTap: () {
+                Navigator.pop(context); // Close drawer
+                handleLogout();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Desktop Scaffold
+  Widget _buildDesktopScaffold() {
+    return Scaffold(
+      backgroundColor: Colors.grey.shade200,
+      appBar: AppBar(
+        backgroundColor: Colors.red.shade400,
+        elevation: 3,
+        leading: IconButton(
+          icon: const Icon(Icons.menu, color: Colors.white, size: 35),
+          onPressed: toggleSidebar,
+        ),
+        centerTitle: true,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(imageAll, height: 30),
+            const SizedBox(width: 10),
+            const Text(
+              "Inventory System",
+              style: TextStyle(
+                fontFamily: fontAll,
+                fontWeight: FontWeight.w600,
+                fontSize: 18,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          // Connection Status Indicator
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ConnectionStatusIndicator(
+              isOnline: isOnline,
+              syncStatus: syncStatus,
+              onSyncPressed: triggerManualSync,
+            ),
+          ),
+          
+          // Profile Menu with Logout
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: PopupMenuButton<String>(
+              icon: const Icon(
+                Icons.account_circle,
+                color: Colors.white,
+                size: 28,
+              ),
+              onSelected: (value) {
+                if (value == 'logout') {
+                  handleLogout();
+                } else if (value == 'profile') {
+                  // Navigate to profile page
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'profile',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person, size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        widget.signedInUser.username,
+                        style: const TextStyle(fontFamily: fontAll),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  enabled: false,
+                  child: Text(
+                    widget.signedInUser.email,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      fontFamily: fontAll,
+                    ),
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'logout',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout, size: 20, color: Colors.red),
+                      SizedBox(width: 12),
+                      Text(
+                        'Logout',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontFamily: fontAll,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
       body: Row(
         children: [
           // Sidebar
           _buildSidebar(),
           
+          // Divider
+          Container(width: 1, color: Colors.grey.shade300),
+          
           // Main content
           Expanded(
-            child: Column(
-              children: [
-                // Top bar
-                _buildTopBar(),
-                
-                // Content area
-                Expanded(
-                  child: Container(
-                    color: Colors.grey[100],
-                    child: currentPage ?? const SizedBox.shrink(),
-                  ),
-                ),
-              ],
-            ),
+            child: currentPage ?? const SizedBox.shrink(),
           ),
         ],
       ),
@@ -185,196 +480,71 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildSidebar() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: isSideBarOpen ? 250 : 70,
-      decoration: const BoxDecoration(
-        color: Color(0xFFEF4848),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 10,
-            offset: Offset(2, 0),
-          ),
-        ],
-      ),
+      width: isSideBarOpen ? 200 : 70,
+      color: Colors.white,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Logo header
-          Container(
-            height: 80,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
+          const SizedBox(height: 40),
+          ...List.generate(menuItems.length, (index) {
+            return Column(
               children: [
-                const Icon(Icons.store, color: Colors.white, size: 32),
-                if (isSideBarOpen) ...[
-                  const SizedBox(width: 12),
-                  const Expanded(
-                    child: Text(
-                      'Commissary',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        fontFamily: fontAll,
-                      ),
-                    ),
-                  ),
-                ],
+                _buildSideBarButton(
+                  icon: menuItems[index]["icon"],
+                  label: menuItems[index]["label"],
+                  index: index,
+                ),
+                const SizedBox(height: 5),
               ],
-            ),
-          ),
-          
-          const Divider(color: Colors.white30, height: 1),
-          
-          // Menu items
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: menuItems.length,
-              itemBuilder: (context, index) {
-                final item = menuItems[index];
-                final isSelected = selectedIndex == index;
-                
-                return _buildMenuItem(
-                  icon: item['icon'],
-                  label: item['label'],
-                  isSelected: isSelected,
-                  onTap: () => _switchPage(index),
-                );
-              },
-            ),
-          ),
-          
-          // Collapse button
-          IconButton(
-            icon: Icon(
-              isSideBarOpen ? Icons.chevron_left : Icons.chevron_right,
-              color: Colors.white,
-            ),
-            onPressed: () {
-              setState(() => isSideBarOpen = !isSideBarOpen);
-            },
-          ),
-          const SizedBox(height: 8),
+            );
+          }),
         ],
       ),
     );
   }
 
-  Widget _buildMenuItem({
+  Widget _buildSideBarButton({
     required IconData icon,
     required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
+    required int index,
   }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: ListTile(
-        leading: Icon(icon, color: Colors.white),
-        title: isSideBarOpen
-            ? Text(
-                label,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontFamily: fontAll,
-                ),
-              )
-            : null,
-        onTap: onTap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
+    final bool active = selectedIndex == index;
 
-  Widget _buildTopBar() {
-    return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Page title
-          Text(
-            menuItems.isNotEmpty ? menuItems[selectedIndex]['label'] : '',
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              fontFamily: fontAll,
+    return InkWell(
+      onTap: () => switchPage(index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+        decoration: active
+            ? BoxDecoration(color: Colors.white.withOpacity(0.25))
+            : null,
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 25,
+              color: active ? Colors.red : Colors.grey.shade900,
             ),
-          ),
-          
-          const Spacer(),
-          
-          // Connection status
-          ConnectionStatusIndicator(
-            isOnline: _isOnline,
-            syncStatus: _syncStatus,
-          ),
-          
-          const SizedBox(width: 16),
-          
-          // User menu
-          PopupMenuButton<String>(
-            offset: const Offset(0, 50),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: const Color(0xFFEF4848),
-                  child: Text(
-                    widget.signedInUser.username[0].toUpperCase(),
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  widget.signedInUser.username,
-                  style: const TextStyle(fontFamily: fontAll),
-                ),
-                const Icon(Icons.arrow_drop_down),
-              ],
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              child: showLabels
+                  ? Row(
+                      children: [
+                        const SizedBox(width: 12),
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontFamily: fontAll,
+                            fontSize: 16,
+                            color: active ? Colors.red : Colors.black,
+                          ),
+                        ),
+                      ],
+                    )
+                  : const SizedBox(),
             ),
-            onSelected: (value) {
-              if (value == 'logout') {
-                _handleLogout();
-              }
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    const Icon(Icons.person, size: 20),
-                    const SizedBox(width: 12),
-                    Text(widget.signedInUser.email),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, size: 20, color: Colors.red),
-                    SizedBox(width: 12),
-                    Text('Logout', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -406,39 +576,46 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 32),
           
           // Stats cards
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 4,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 1.5,
-            children: [
-              _buildStatCard(
-                title: 'Active Branches',
-                value: '0',
-                icon: Icons.store,
-                color: Colors.blue,
-              ),
-              _buildStatCard(
-                title: 'Total Items',
-                value: '0',
-                icon: Icons.inventory,
-                color: Colors.green,
-              ),
-              _buildStatCard(
-                title: 'Pending Requests',
-                value: '0',
-                icon: Icons.pending_actions,
-                color: Colors.orange,
-              ),
-              _buildStatCard(
-                title: 'Low Stock Alerts',
-                value: '0',
-                icon: Icons.warning,
-                color: Colors.red,
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final crossAxisCount = constraints.maxWidth > 1200 ? 4 : 
+                                      constraints.maxWidth > 800 ? 2 : 1;
+              
+              return GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: 16,
+                mainAxisSpacing: 16,
+                childAspectRatio: 1.5,
+                children: [
+                  _buildStatCard(
+                    title: 'Active Branches',
+                    value: '0',
+                    icon: Icons.store,
+                    color: Colors.blue,
+                  ),
+                  _buildStatCard(
+                    title: 'Total Items',
+                    value: '0',
+                    icon: Icons.inventory,
+                    color: Colors.green,
+                  ),
+                  _buildStatCard(
+                    title: 'Pending Requests',
+                    value: '0',
+                    icon: Icons.pending_actions,
+                    color: Colors.orange,
+                  ),
+                  _buildStatCard(
+                    title: 'Low Stock Alerts',
+                    value: '0',
+                    icon: Icons.warning,
+                    color: Colors.red,
+                  ),
+                ],
+              );
+            },
           ),
           
           const SizedBox(height: 32),
@@ -461,22 +638,22 @@ class _HomeScreenState extends State<HomeScreen> {
               _buildQuickAction(
                 icon: Icons.add_business,
                 label: 'Add Branch',
-                onTap: () => _switchPage(1), // Navigate to Branches
+                onTap: () => switchPage(1), // Navigate to Branches
               ),
               _buildQuickAction(
                 icon: Icons.add_box,
                 label: 'Add Item',
-                onTap: () => _switchPage(2), // Navigate to Inventory
+                onTap: () => switchPage(2), // Navigate to Inventory
               ),
               _buildQuickAction(
                 icon: Icons.person_add,
                 label: 'Add Branch Admin',
-                onTap: () => _switchPage(1), // Navigate to Branches
+                onTap: () => switchPage(1), // Navigate to Branches
               ),
               _buildQuickAction(
                 icon: Icons.assessment,
                 label: 'View Reports',
-                onTap: () => _switchPage(5), // Navigate to Reports
+                onTap: () => switchPage(5), // Navigate to Reports
               ),
             ],
           ),
