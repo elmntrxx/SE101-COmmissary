@@ -24,10 +24,10 @@ class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.signedInUser});
 
   @override
-  State<HomeScreen> createState() => HomeScreenState();
+  State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> {
   late AppDatabase _db;
   late ConnectivityService _connectivityService;
   
@@ -51,10 +51,12 @@ class HomeScreenState extends State<HomeScreen> {
   void _initConnectivity() {
     _connectivityService = ConnectivityService();
     _connectivityService.connectionStream.listen((online) {
-      setState(() {
-        isOnline = online;
-        syncStatus = online ? SyncStatus.synced : SyncStatus.offline;
-      });
+      if (mounted) {
+        setState(() {
+          isOnline = online;
+          syncStatus = online ? SyncStatus.synced : SyncStatus.offline;
+        });
+      }
     });
   }
 
@@ -157,9 +159,25 @@ class HomeScreenState extends State<HomeScreen> {
     );
 
     if (shouldLogout == true && mounted) {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove('loggedInUserId');
-      Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+      try {
+        // Sign out from auth service (clears Supabase session and user state)
+        await authService.signOut();
+        
+        // Clear local preferences
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.remove('loggedInUserId');
+        
+        // Navigate to login screen
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+        }
+      } catch (e) {
+        print('❌ Error during logout: $e');
+        // Still navigate to login even if logout fails
+        if (mounted) {
+          Navigator.pushNamedAndRemoveUntil(context, '/login', (route) => false);
+        }
+      }
     }
   }
 
