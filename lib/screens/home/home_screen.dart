@@ -343,27 +343,116 @@ class HomeScreenState extends State<HomeScreen> {
   // Desktop Scaffold
   Widget _buildDesktopScaffold() {
     return Scaffold(
+      backgroundColor: Colors.grey.shade200,
+      appBar: AppBar(
+        backgroundColor: Colors.red.shade400,
+        elevation: 3,
+        leading: IconButton(
+          icon: const Icon(Icons.menu, color: Colors.white, size: 35),
+          onPressed: toggleSidebar,
+        ),
+        centerTitle: true,
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset(imageAll, height: 30),
+            const SizedBox(width: 10),
+            const Text(
+              "Inventory System",
+              style: TextStyle(
+                fontFamily: fontAll,
+                fontWeight: FontWeight.w600,
+                fontSize: 18,
+                color: Colors.white,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          // Connection Status Indicator
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ConnectionStatusIndicator(
+              isOnline: isOnline,
+              syncStatus: syncStatus,
+              onSyncPressed: triggerManualSync,
+            ),
+          ),
+          
+          // Profile Menu with Logout
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: PopupMenuButton<String>(
+              icon: const Icon(
+                Icons.account_circle,
+                color: Colors.white,
+                size: 28,
+              ),
+              onSelected: (value) {
+                if (value == 'logout') {
+                  handleLogout();
+                } else if (value == 'profile') {
+                  // Navigate to profile page
+                }
+              },
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'profile',
+                  child: Row(
+                    children: [
+                      const Icon(Icons.person, size: 20),
+                      const SizedBox(width: 12),
+                      Text(
+                        widget.signedInUser.username,
+                        style: const TextStyle(fontFamily: fontAll),
+                      ),
+                    ],
+                  ),
+                ),
+                PopupMenuItem(
+                  enabled: false,
+                  child: Text(
+                    widget.signedInUser.email,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[600],
+                      fontFamily: fontAll,
+                    ),
+                  ),
+                ),
+                const PopupMenuDivider(),
+                const PopupMenuItem(
+                  value: 'logout',
+                  child: Row(
+                    children: [
+                      Icon(Icons.logout, size: 20, color: Colors.red),
+                      SizedBox(width: 12),
+                      Text(
+                        'Logout',
+                        style: TextStyle(
+                          color: Colors.red,
+                          fontFamily: fontAll,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
       body: Row(
         children: [
           // Sidebar
           _buildSidebar(),
           
+          // Divider
+          Container(width: 1, color: Colors.grey.shade300),
+          
           // Main content
           Expanded(
-            child: Column(
-              children: [
-                // Top bar
-                _buildTopBar(),
-                
-                // Content area
-                Expanded(
-                  child: Container(
-                    color: Colors.grey[100],
-                    child: currentPage ?? const SizedBox.shrink(),
-                  ),
-                ),
-              ],
-            ),
+            child: currentPage ?? const SizedBox.shrink(),
           ),
         ],
       ),
@@ -373,224 +462,71 @@ class HomeScreenState extends State<HomeScreen> {
   Widget _buildSidebar() {
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
-      width: isSideBarOpen ? 250 : 85,
-      decoration: const BoxDecoration(
-        color: Color(0xFFEF4848),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black26,
-            blurRadius: 10,
-            offset: Offset(2, 0),
-          ),
-        ],
-      ),
+      width: isSideBarOpen ? 200 : 70,
+      color: Colors.white,
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // Logo header
-          Container(
-            height: 80,
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
+          const SizedBox(height: 40),
+          ...List.generate(menuItems.length, (index) {
+            return Column(
               children: [
-                const Icon(Icons.store, color: Colors.white, size: 32),
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  child: showLabels
-                      ? Row(
-                          children: [
-                            const SizedBox(width: 12),
-                            const Text(
-                              'Commissary',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                fontFamily: fontAll,
-                              ),
-                            ),
-                          ],
-                        )
-                      : const SizedBox(),
+                _buildSideBarButton(
+                  icon: menuItems[index]["icon"],
+                  label: menuItems[index]["label"],
+                  index: index,
                 ),
+                const SizedBox(height: 5),
               ],
-            ),
-          ),
-          
-          const Divider(color: Colors.white30, height: 1),
-          
-          // Menu items
-          Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              itemCount: menuItems.length,
-              itemBuilder: (context, index) {
-                final item = menuItems[index];
-                final isSelected = selectedIndex == index;
-                
-                return _buildMenuItem(
-                  icon: item['icon'],
-                  label: item['label'],
-                  isSelected: isSelected,
-                  onTap: () => switchPage(index),
-                );
-              },
-            ),
-          ),
-          
-          // Collapse button
-          IconButton(
-            icon: Icon(
-              isSideBarOpen ? Icons.chevron_left : Icons.chevron_right,
-              color: Colors.white,
-            ),
-            onPressed: toggleSidebar,
-          ),
-          const SizedBox(height: 8),
+            );
+          }),
         ],
       ),
     );
   }
 
-  Widget _buildMenuItem({
+  Widget _buildSideBarButton({
     required IconData icon,
     required String label,
-    required bool isSelected,
-    required VoidCallback onTap,
+    required int index,
   }) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
-          child: Row(
-            children: [
-              Icon(icon, color: Colors.white, size: 25),
-              AnimatedSize(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                child: showLabels
-                    ? Row(
-                        children: [
-                          const SizedBox(width: 12),
-                          Text(
-                            label,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontFamily: fontAll,
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
-                      )
-                    : const SizedBox(),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+    final bool active = selectedIndex == index;
 
-  Widget _buildTopBar() {
-    return Container(
-      height: 64,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 5,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Page title
-          Text(
-            menuItems.isNotEmpty ? menuItems[selectedIndex]['label'] : '',
-            style: const TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              fontFamily: fontAll,
+    return InkWell(
+      onTap: () => switchPage(index),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
+        decoration: active
+            ? BoxDecoration(color: Colors.white.withOpacity(0.25))
+            : null,
+        child: Row(
+          children: [
+            Icon(
+              icon,
+              size: 25,
+              color: active ? Colors.red : Colors.grey.shade900,
             ),
-          ),
-          
-          const Spacer(),
-          
-          // Connection status
-          ConnectionStatusIndicator(
-            isOnline: isOnline,
-            syncStatus: syncStatus,
-            onSyncPressed: triggerManualSync,
-          ),
-          
-          const SizedBox(width: 16),
-          
-          // User menu
-          PopupMenuButton<String>(
-            offset: const Offset(0, 50),
-            child: Row(
-              children: [
-                CircleAvatar(
-                  backgroundColor: const Color(0xFFEF4848),
-                  child: Text(
-                    widget.signedInUser.username[0].toUpperCase(),
-                    style: const TextStyle(color: Colors.white),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  widget.signedInUser.username,
-                  style: const TextStyle(fontFamily: fontAll),
-                ),
-                const Icon(Icons.arrow_drop_down),
-              ],
+            AnimatedSize(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              child: showLabels
+                  ? Row(
+                      children: [
+                        const SizedBox(width: 12),
+                        Text(
+                          label,
+                          style: TextStyle(
+                            fontFamily: fontAll,
+                            fontSize: 16,
+                            color: active ? Colors.red : Colors.black,
+                          ),
+                        ),
+                      ],
+                    )
+                  : const SizedBox(),
             ),
-            onSelected: (value) {
-              if (value == 'logout') {
-                handleLogout();
-              }
-            },
-            itemBuilder: (context) => [
-              PopupMenuItem(
-                value: 'profile',
-                child: Row(
-                  children: [
-                    const Icon(Icons.person, size: 20),
-                    const SizedBox(width: 12),
-                    Text(
-                      widget.signedInUser.email,
-                      style: const TextStyle(fontFamily: fontAll),
-                    ),
-                  ],
-                ),
-              ),
-              const PopupMenuDivider(),
-              const PopupMenuItem(
-                value: 'logout',
-                child: Row(
-                  children: [
-                    Icon(Icons.logout, size: 20, color: Colors.red),
-                    SizedBox(width: 12),
-                    Text(
-                      'Logout',
-                      style: TextStyle(color: Colors.red, fontFamily: fontAll),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
