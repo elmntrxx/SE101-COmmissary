@@ -124,10 +124,13 @@ class InventoryManagementPageState extends State<InventoryManagementPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: const Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(Icons.help_outline, color: Colors.blue),
             SizedBox(width: 12),
-            Text('Inventory Management Help'),
+            Expanded(
+              child: Text('Inventory Management Help'),
+            ),
           ],
         ),
         content: const SingleChildScrollView(

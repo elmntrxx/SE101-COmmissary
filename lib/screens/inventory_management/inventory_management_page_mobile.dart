@@ -69,6 +69,13 @@ class InventoryManagementPageMobile extends StatelessWidget {
                       ),
                       IconButton(
                         icon: const Icon(
+                          Icons.help_outline,
+                          size: 28,
+                        ),
+                        onPressed: () => state.showHelpDialog(context),
+                      ),
+                      IconButton(
+                        icon: const Icon(
                           Icons.notifications_outlined,
                           size: 28,
                         ),
