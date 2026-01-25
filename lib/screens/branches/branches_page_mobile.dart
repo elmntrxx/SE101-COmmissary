@@ -14,7 +14,7 @@ class BranchesPageMobile extends StatelessWidget {
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
-          onTap: () => state.setState(() => state.selectedTab = index),
+          onTap: () => state.setSelectedTab(index),
           child: Container(
             height: 45,
             alignment: Alignment.center,
