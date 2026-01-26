@@ -427,6 +427,12 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
   /// Soft delete item (alias for deactivateItem)
   Future<int> softDeleteItem(int id) => deactivateItem(id);
 
+  /// Permanently delete item from database
+  Future<int> permanentlyDeleteItem(int id) async {
+    // Delete from local database
+    return (delete(items)..where((i) => i.id.equals(id))).go();
+  }
+
   /// Reactivate item
   Future<int> reactivateItem(int id) {
     return (update(items)..where((i) => i.id.equals(id))).write(
