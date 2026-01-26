@@ -5,16 +5,18 @@ import 'package:uuid/uuid.dart';
 import '../../database/app_database.dart';
 import '../../database/daos/items_dao.dart';
 import '../../app_globals.dart';
-import '../../utils/design_constants.dart';
+import '../../utils/tables.dart';
 import 'widgets/item_form_dialog.dart';
 
 /// Products/Inventory tab for managing finished products
 class ProductsTab extends StatefulWidget {
   final int organizationId;
+  final ValueChanged<bool>? onItemsChanged;
 
   const ProductsTab({
     super.key,
     required this.organizationId,
+    this.onItemsChanged,
   });
 
   @override
@@ -451,606 +453,176 @@ class _ProductsTabState extends State<ProductsTab> {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        // Search and Actions Bar
-        Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            children: [
-              // Search
-              Expanded(
-                child: TextField(
-                  controller: _searchController,
-                  decoration: InputDecoration(
-                    hintText: 'Search products...',
-                    prefixIcon: const Icon(Icons.search),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 12,
-                    ),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.clear),
-                            onPressed: () {
-                              _searchController.clear();
-                              setState(() => _searchQuery = '');
-                            },
-                          )
-                        : null,
+    return StreamBuilder<List<Item>>(
+      stream: database.itemsDao.watchItemsByOrganization(
+        widget.organizationId,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                const SizedBox(height: 16),
+                Text('Error: ${snapshot.error}'),
+              ],
+            ),
+          );
+        }
+
+        var products = snapshot.data ?? [];
+
+        // Notify parent about items count
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            widget.onItemsChanged?.call(products.isNotEmpty);
+          }
+        });
+
+        // Apply search filter
+        if (_searchQuery.isNotEmpty) {
+          products = products
+              .where((p) => p.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+              .toList();
+        }
+
+        // Apply category filter
+        if (_selectedCategoryId != null) {
+          products = products.where((p) => p.categoryId == _selectedCategoryId).toList();
+        }
+
+        // Apply low stock filter
+        if (_showLowStockOnly) {
+          products = products.where((p) => p.stock <= p.criticalLevel).toList();
+        }
+
+        // Apply sorting
+        products.sort((a, b) {
+          switch (_sortOrder) {
+            case ItemSortOrder.nameAsc:
+              return a.name.compareTo(b.name);
+            case ItemSortOrder.nameDesc:
+              return b.name.compareTo(a.name);
+            case ItemSortOrder.stockAsc:
+              return a.stock.compareTo(b.stock);
+            case ItemSortOrder.stockDesc:
+              return b.stock.compareTo(a.stock);
+            case ItemSortOrder.priceAsc:
+              return a.price.compareTo(b.price);
+            case ItemSortOrder.priceDesc:
+              return b.price.compareTo(a.price);
+            case ItemSortOrder.costAsc:
+              return a.cost.compareTo(b.cost);
+            case ItemSortOrder.costDesc:
+              return b.cost.compareTo(a.cost);
+            case ItemSortOrder.newestFirst:
+              return b.createdAt.compareTo(a.createdAt);
+            case ItemSortOrder.oldestFirst:
+              return a.createdAt.compareTo(b.createdAt);
+          }
+        });
+
+        if (products.isEmpty && _searchQuery.isEmpty && !_showLowStockOnly && _selectedCategoryId == null) {
+          return emptyTables(
+            message: 'You can manage your products here.',
+            onAddPressed: _showAddProductDialog,
+            buttonType: EmptyButtonType.icon,
+            buttonText: null,
+          );
+        }
+
+        if (products.isEmpty) {
+          return const Center(
+            child: Text(
+              'No products match your filters',
+              style: TextStyle(color: Colors.grey),
+            ),
+          );
+        }
+
+        return buildUniversalTable(
+          headers: [
+            'Name',
+            'Stock',
+            'Price',
+            'Cost',
+            'Margin',
+            'Status',
+            '',
+          ],
+          rows: products.map((product) {
+            final isLowStock = product.stock <= product.criticalLevel;
+            final profit = product.price - product.cost;
+            final profitMargin = product.price > 0 ? (profit / product.price * 100) : 0;
+            return [
+              Text(product.name),
+              Text('${product.stock}'),
+              Text('₱${product.price.toStringAsFixed(2)}'),
+              Text('₱${product.cost.toStringAsFixed(2)}'),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: profit >= 0 ? Colors.green.shade50 : Colors.red.shade50,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  '${profitMargin.toStringAsFixed(0)}%',
+                  style: TextStyle(
+                    color: profit >= 0 ? Colors.green : Colors.red,
+                    fontSize: 12,
                   ),
-                  onChanged: (value) {
-                    setState(() => _searchQuery = value);
-                  },
                 ),
               ),
-              const SizedBox(width: 12),
-
-              // Category filter
-              StreamBuilder<List<Category>>(
-                stream: database.categoriesDao.watchAllCategories(),
-                builder: (context, snapshot) {
-                  final categories = snapshot.data ?? [];
-                  return PopupMenuButton<int?>(
-                    icon: const Icon(Icons.category),
-                    tooltip: 'Filter by category',
-                    onSelected: (id) {
-                      setState(() => _selectedCategoryId = id);
-                    },
-                    itemBuilder: (context) => [
-                      PopupMenuItem<int?>(
-                        value: null,
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.all_inclusive,
-                              size: 20,
-                              color: _selectedCategoryId == null
-                                  ? Colors.blue
-                                  : Colors.grey,
-                            ),
-                            const SizedBox(width: 12),
-                            const Text('All Categories'),
-                            if (_selectedCategoryId == null) ...[
-                              const Spacer(),
-                              const Icon(Icons.check, size: 18, color: Colors.blue),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const PopupMenuDivider(),
-                      ...categories.map((cat) => PopupMenuItem<int?>(
-                            value: cat.id,
-                            child: Row(
-                              children: [
-                                Icon(
-                                  Icons.label,
-                                  size: 20,
-                                  color: _selectedCategoryId == cat.id
-                                      ? Colors.blue
-                                      : Colors.grey,
-                                ),
-                                const SizedBox(width: 12),
-                                Text(cat.name),
-                                if (_selectedCategoryId == cat.id) ...[
-                                  const Spacer(),
-                                  const Icon(Icons.check, size: 18, color: Colors.blue),
-                                ],
-                              ],
-                            ),
-                          )),
-                    ],
-                  );
-                },
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: isLowStock ? Colors.orange.shade100 : Colors.green.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  isLowStock ? 'Low Stock' : 'In Stock',
+                  style: TextStyle(
+                    color: isLowStock ? Colors.orange : Colors.green,
+                    fontSize: 12,
+                  ),
+                ),
               ),
-
-              // Sort dropdown
-              PopupMenuButton<ItemSortOrder>(
-                icon: const Icon(Icons.sort),
-                tooltip: 'Sort by',
-                onSelected: (order) {
-                  setState(() => _sortOrder = order);
-                },
-                itemBuilder: (context) => [
-                  _buildSortMenuItem(
-                    ItemSortOrder.nameAsc,
-                    'Name (A-Z)',
-                    Icons.sort_by_alpha,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.restaurant_menu, size: 18),
+                    tooltip: 'View Recipe',
+                    onPressed: () => _showRecipeDetailsDialog(product),
                   ),
-                  _buildSortMenuItem(
-                    ItemSortOrder.nameDesc,
-                    'Name (Z-A)',
-                    Icons.sort_by_alpha,
+                  IconButton(
+                    icon: const Icon(Icons.inventory, size: 18),
+                    tooltip: 'Adjust Stock',
+                    onPressed: () => _showAdjustStockDialog(product),
                   ),
-                  const PopupMenuDivider(),
-                  _buildSortMenuItem(
-                    ItemSortOrder.stockAsc,
-                    'Stock (Low to High)',
-                    Icons.trending_up,
+                  IconButton(
+                    icon: const Icon(Icons.edit, size: 18),
+                    tooltip: 'Edit',
+                    onPressed: () => _showEditProductDialog(product),
                   ),
-                  _buildSortMenuItem(
-                    ItemSortOrder.stockDesc,
-                    'Stock (High to Low)',
-                    Icons.trending_down,
-                  ),
-                  const PopupMenuDivider(),
-                  _buildSortMenuItem(
-                    ItemSortOrder.priceAsc,
-                    'Price (Low to High)',
-                    Icons.attach_money,
-                  ),
-                  _buildSortMenuItem(
-                    ItemSortOrder.priceDesc,
-                    'Price (High to Low)',
-                    Icons.attach_money,
-                  ),
-                  const PopupMenuDivider(),
-                  _buildSortMenuItem(
-                    ItemSortOrder.newestFirst,
-                    'Newest First',
-                    Icons.schedule,
-                  ),
-                  _buildSortMenuItem(
-                    ItemSortOrder.oldestFirst,
-                    'Oldest First',
-                    Icons.history,
+                  IconButton(
+                    icon: const Icon(Icons.delete, color: Colors.red, size: 18),
+                    tooltip: 'Delete',
+                    onPressed: () => _showDeleteConfirmation(product),
                   ),
                 ],
               ),
-
-              // Low stock filter
-              FilterChip(
-                label: const Text('Low Stock'),
-                selected: _showLowStockOnly,
-                onSelected: (selected) {
-                  setState(() => _showLowStockOnly = selected);
-                },
-                avatar: Icon(
-                  Icons.warning,
-                  size: 18,
-                  color: _showLowStockOnly ? Colors.white : Colors.orange,
-                ),
-                selectedColor: Colors.orange,
-              ),
-              const SizedBox(width: 12),
-
-              // Add button
-              ElevatedButton.icon(
-                onPressed: _showAddProductDialog,
-                icon: const Icon(Icons.add),
-                label: const Text('Add Product'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 12,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-
-        // Products list
-        Expanded(
-          child: StreamBuilder<List<Item>>(
-            stream: database.itemsDao.watchItemsByOrganization(
-              widget.organizationId,
-            ),
-            builder: (context, snapshot) {
-              if (snapshot.connectionState == ConnectionState.waiting) {
-                return const Center(child: CircularProgressIndicator());
-              }
-
-              if (snapshot.hasError) {
-                return Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.error_outline, size: 48, color: Colors.red),
-                      const SizedBox(height: 16),
-                      Text('Error: ${snapshot.error}'),
-                    ],
-                  ),
-                );
-              }
-
-              var products = snapshot.data ?? [];
-
-              // Apply search filter
-              if (_searchQuery.isNotEmpty) {
-                products = products
-                    .where((p) => p.name.toLowerCase().contains(_searchQuery.toLowerCase()))
-                    .toList();
-              }
-
-              // Apply category filter
-              if (_selectedCategoryId != null) {
-                products = products
-                    .where((p) => p.categoryId == _selectedCategoryId)
-                    .toList();
-              }
-
-              // Apply low stock filter
-              if (_showLowStockOnly) {
-                products = products
-                    .where((p) => p.stock <= p.criticalLevel)
-                    .toList();
-              }
-
-              // Apply sorting
-              products.sort((a, b) {
-                switch (_sortOrder) {
-                  case ItemSortOrder.nameAsc:
-                    return a.name.compareTo(b.name);
-                  case ItemSortOrder.nameDesc:
-                    return b.name.compareTo(a.name);
-                  case ItemSortOrder.stockAsc:
-                    return a.stock.compareTo(b.stock);
-                  case ItemSortOrder.stockDesc:
-                    return b.stock.compareTo(a.stock);
-                  case ItemSortOrder.priceAsc:
-                    return a.price.compareTo(b.price);
-                  case ItemSortOrder.priceDesc:
-                    return b.price.compareTo(a.price);
-                  case ItemSortOrder.costAsc:
-                    return a.cost.compareTo(b.cost);
-                  case ItemSortOrder.costDesc:
-                    return b.cost.compareTo(a.cost);
-                  case ItemSortOrder.newestFirst:
-                    return b.createdAt.compareTo(a.createdAt);
-                  case ItemSortOrder.oldestFirst:
-                    return a.createdAt.compareTo(b.createdAt);
-                }
-              });
-
-              if (products.isEmpty) {
-                return Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        _searchQuery.isNotEmpty || _showLowStockOnly || _selectedCategoryId != null
-                            ? Icons.search_off
-                            : Icons.inventory_2_outlined,
-                        size: 64,
-                        color: Colors.grey,
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        _searchQuery.isNotEmpty || _showLowStockOnly || _selectedCategoryId != null
-                            ? 'No products match your filters'
-                            : 'No products yet',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          color: Colors.grey,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      if (_searchQuery.isEmpty && !_showLowStockOnly && _selectedCategoryId == null)
-                        ElevatedButton.icon(
-                          onPressed: _showAddProductDialog,
-                          icon: const Icon(Icons.add),
-                          label: const Text('Add Your First Product'),
-                        ),
-                    ],
-                  ),
-                );
-              }
-
-              return _buildProductsGrid(products);
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  PopupMenuItem<ItemSortOrder> _buildSortMenuItem(
-    ItemSortOrder order,
-    String label,
-    IconData icon,
-  ) {
-    return PopupMenuItem(
-      value: order,
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 20,
-            color: _sortOrder == order ? Colors.blue : Colors.grey,
-          ),
-          const SizedBox(width: 12),
-          Text(
-            label,
-            style: TextStyle(
-              fontWeight: _sortOrder == order ? FontWeight.bold : FontWeight.normal,
-              color: _sortOrder == order ? Colors.blue : null,
-            ),
-          ),
-          if (_sortOrder == order) ...[
-            const Spacer(),
-            const Icon(Icons.check, size: 18, color: Colors.blue),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProductsGrid(List<Item> products) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final crossAxisCount = constraints.maxWidth > 1200
-            ? 4
-            : constraints.maxWidth > 800
-                ? 3
-                : constraints.maxWidth > 500
-                    ? 2
-                    : 1;
-
-        return GridView.builder(
-          padding: const EdgeInsets.all(16),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            crossAxisCount: crossAxisCount,
-            childAspectRatio: 1.2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-          ),
-          itemCount: products.length,
-          itemBuilder: (context, index) {
-            return _buildProductCard(products[index]);
-          },
+            ];
+          }).toList(),
+          smallHeaderWidth: 60,
+          largeHeaderWidth: 60,
         );
       },
-    );
-  }
-
-  Widget _buildProductCard(Item product) {
-    final isLowStock = product.stock <= product.criticalLevel;
-    final profit = product.price - product.cost;
-    final profitMargin = product.price > 0 ? (profit / product.price * 100) : 0;
-    final stockPercentage = product.criticalLevel > 0
-        ? (product.stock / (product.criticalLevel * 2)).clamp(0.0, 1.0)
-        : 1.0;
-
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: isLowStock
-            ? const BorderSide(color: Colors.orange, width: 2)
-            : BorderSide.none,
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _showEditProductDialog(product),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header with name and actions
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      product.name,
-                      style: const TextStyle(
-                        fontFamily: fontAll,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  if (isLowStock)
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.orange.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.warning_amber,
-                            size: 14,
-                            color: Colors.orange,
-                          ),
-                          SizedBox(width: 4),
-                          Text(
-                            'Low',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.orange,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  PopupMenuButton<String>(
-                    padding: EdgeInsets.zero,
-                    icon: const Icon(Icons.more_vert, size: 20),
-                    onSelected: (value) {
-                      switch (value) {
-                        case 'edit':
-                          _showEditProductDialog(product);
-                          break;
-                        case 'recipe':
-                          _showRecipeDetailsDialog(product);
-                          break;
-                        case 'adjust':
-                          _showAdjustStockDialog(product);
-                          break;
-                        case 'delete':
-                          _showDeleteConfirmation(product);
-                          break;
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      const PopupMenuItem(
-                        value: 'edit',
-                        child: Row(
-                          children: [
-                            Icon(Icons.edit, size: 20),
-                            SizedBox(width: 12),
-                            Text('Edit'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'recipe',
-                        child: Row(
-                          children: [
-                            Icon(Icons.restaurant_menu, size: 20),
-                            SizedBox(width: 12),
-                            Text('View Recipe'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuItem(
-                        value: 'adjust',
-                        child: Row(
-                          children: [
-                            Icon(Icons.inventory, size: 20),
-                            SizedBox(width: 12),
-                            Text('Adjust Stock'),
-                          ],
-                        ),
-                      ),
-                      const PopupMenuDivider(),
-                      const PopupMenuItem(
-                        value: 'delete',
-                        child: Row(
-                          children: [
-                            Icon(Icons.delete, size: 20, color: Colors.red),
-                            SizedBox(width: 12),
-                            Text('Delete', style: TextStyle(color: Colors.red)),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-
-              // Description
-              if (product.description != null && product.description!.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4),
-                  child: Text(
-                    product.description!,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-
-              const Spacer(),
-
-              // Pricing row
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '₱${product.price.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontFamily: fontAll,
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue,
-                        ),
-                      ),
-                      Text(
-                        'Cost: ₱${product.cost.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: profit >= 0
-                          ? Colors.green.withOpacity(0.1)
-                          : Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Text(
-                      '${profitMargin.toStringAsFixed(0)}% margin',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: profit >= 0 ? Colors.green : Colors.red,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-
-              // Stock indicator
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${product.stock} units',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w600,
-                          color: isLowStock ? Colors.orange : Colors.black87,
-                        ),
-                      ),
-                      Text(
-                        'Critical: ${product.criticalLevel}',
-                        style: const TextStyle(
-                          fontSize: 11,
-                          color: Colors.grey,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
-                    child: LinearProgressIndicator(
-                      value: stockPercentage,
-                      backgroundColor: Colors.grey.shade200,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        isLowStock ? Colors.orange : Colors.green,
-                      ),
-                      minHeight: 6,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

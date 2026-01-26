@@ -32,6 +32,10 @@ class BranchesPageState extends State<BranchesPage> {
 
   final _uuid = const Uuid();
 
+  void setSelectedTab(int index) {
+    setState(() => selectedTab = index);
+  }
+
   @override
   void initState() {
     super.initState();
