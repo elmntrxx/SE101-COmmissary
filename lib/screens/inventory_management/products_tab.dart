@@ -1,6 +1,7 @@
 // lib/screens/inventory_management/products_tab.dart
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' hide Column;
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import '../../database/app_database.dart';
 import '../../database/daos/items_dao.dart';
@@ -545,6 +546,7 @@ class _ProductsTabState extends State<ProductsTab> {
           );
         }
 
+        final numberFormat = NumberFormat('#,##0.##');
         return buildUniversalTable(
           headers: [
             'Name',
@@ -561,9 +563,9 @@ class _ProductsTabState extends State<ProductsTab> {
             final profitMargin = product.price > 0 ? (profit / product.price * 100) : 0;
             return [
               Text(product.name),
-              Text('${product.stock}'),
-              Text('₱${product.price.toStringAsFixed(2)}'),
-              Text('₱${product.cost.toStringAsFixed(2)}'),
+              Text(numberFormat.format(product.stock)),
+              Text('₱${numberFormat.format(product.price)}'),
+              Text('₱${numberFormat.format(product.cost)}'),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
