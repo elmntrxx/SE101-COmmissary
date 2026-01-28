@@ -311,7 +311,10 @@ class SupabaseSyncService {
     for (final item in unsynced) {
       try {
         final org = await db.organizationsDao.getOrganizationById(item.organizationId);
-        if (org == null) continue;
+        if (org == null || org.cloudId == null) {
+          print('      ⚠️ Skipping item ${item.name}: org not found or missing cloud_id');
+          continue;
+        }
 
         await _syncClient.from('items').upsert({
           'cloud_id': item.cloudId,
@@ -323,7 +326,7 @@ class SupabaseSyncService {
           'spoilage': item.spoilage,
           'price': item.price,
           'cost': item.cost,
-          'organization_id': item.organizationId,
+          'organization_id': org.cloudId,  // ✅ FIX: Use cloud_id (UUID), not local int
           'category_id': item.categoryId,
           'master_item_id': item.masterItemId,
           'is_active': item.isActive,
@@ -345,7 +348,10 @@ class SupabaseSyncService {
     for (final ing in unsynced) {
       try {
         final commissary = await db.organizationsDao.getOrganizationById(ing.commissaryId);
-        if (commissary == null) continue;
+        if (commissary == null || commissary.cloudId == null) {
+          print('      ⚠️ Skipping ingredient ${ing.name}: commissary not found or missing cloud_id');
+          continue;
+        }
 
         await _syncClient.from('ingredients').upsert({
           'cloud_id': ing.cloudId,
@@ -354,7 +360,7 @@ class SupabaseSyncService {
           'stock': ing.stock,
           'critical_level': ing.criticalLevel,
           'cost_per_unit': ing.costPerUnit,
-          'commissary_id': ing.commissaryId,
+          'commissary_id': commissary.cloudId,  // ✅ FIX: Use cloud_id (UUID), not local int
           'is_active': ing.isActive,
           'created_at': ing.createdAt.toIso8601String(),
           'updated_at': ing.updatedAt.toIso8601String(),
