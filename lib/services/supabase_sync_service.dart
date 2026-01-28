@@ -311,12 +311,9 @@ class SupabaseSyncService {
     for (final item in unsynced) {
       try {
         final org = await db.organizationsDao.getOrganizationById(item.organizationId);
-        if (org == null) continue;
-
-        String? categoryCloudId;
-        if (item.categoryId != null) {
-          final cat = await db.categoriesDao.getCategoryById(item.categoryId!);
-          categoryCloudId = cat?.cloudId;
+        if (org == null || org.cloudId == null) {
+          print('      ⚠️ Skipping item ${item.name}: org not found or missing cloud_id');
+          continue;
         }
 
         await _syncClient.from('items').upsert({
@@ -329,7 +326,7 @@ class SupabaseSyncService {
           'spoilage': item.spoilage,
           'price': item.price,
           'cost': item.cost,
-          'organization_id': item.organizationId,
+          'organization_id': org.cloudId,  // ✅ FIX: Use cloud_id (UUID), not local int
           'category_id': item.categoryId,
           'master_item_id': item.masterItemId,
           'is_active': item.isActive,
@@ -351,7 +348,10 @@ class SupabaseSyncService {
     for (final ing in unsynced) {
       try {
         final commissary = await db.organizationsDao.getOrganizationById(ing.commissaryId);
-        if (commissary == null) continue;
+        if (commissary == null || commissary.cloudId == null) {
+          print('      ⚠️ Skipping ingredient ${ing.name}: commissary not found or missing cloud_id');
+          continue;
+        }
 
         await _syncClient.from('ingredients').upsert({
           'cloud_id': ing.cloudId,
@@ -360,7 +360,7 @@ class SupabaseSyncService {
           'stock': ing.stock,
           'critical_level': ing.criticalLevel,
           'cost_per_unit': ing.costPerUnit,
-          'commissary_id': ing.commissaryId,
+          'commissary_id': commissary.cloudId,  // ✅ FIX: Use cloud_id (UUID), not local int
           'is_active': ing.isActive,
           'created_at': ing.createdAt.toIso8601String(),
           'updated_at': ing.updatedAt.toIso8601String(),
@@ -549,27 +549,280 @@ class SupabaseSyncService {
 
   Future<void> _pullCategories() async {
     print('   📥 Pulling categories...');
+    try {
+      final remoteCategories = await _syncClient.from('categories').select();
+      print('      Found ${remoteCategories.length} remote categories');
+
+      int inserted = 0;
+      int updated = 0;
+
+      for (final remote in remoteCategories) {
+        final cloudId = remote['cloud_id'] as String?;
+        if (cloudId == null) continue;
+
+        // Check if we have this category locally
+        final existing = await db.categoriesDao.getCategoryByCloudId(cloudId);
+
+        if (existing == null) {
+          // Insert new category from cloud
+          await db.into(db.categories).insert(
+            CategoriesCompanion.insert(
+              cloudId: cloudId,
+              name: remote['name'] as String,
+              description: Value(remote['description'] as String?),
+              isDeleted: Value(remote['is_deleted'] as bool? ?? false),
+              needsSync: const Value(false),
+            ),
+          );
+          inserted++;
+          print('      ✅ Inserted category: ${remote['name']}');
+        } else {
+          // Update existing category
+          await db.update(db.categories).replace(
+            Category(
+              id: existing.id,
+              cloudId: cloudId,
+              name: remote['name'] as String,
+              description: remote['description'] as String?,
+              isDeleted: remote['is_deleted'] as bool? ?? false,
+              createdAt: existing.createdAt,
+              updatedAt: DateTime.parse(remote['updated_at'] as String? ?? DateTime.now().toIso8601String()),
+              lastSyncedAt: DateTime.now(),
+              needsSync: false,
+            ),
+          );
+          updated++;
+        }
+      }
+
+      if (inserted > 0) print('      📥 Inserted $inserted new categories');
+      if (updated > 0) print('      🔄 Updated $updated existing categories');
+    } catch (e) {
+      print('      ❌ Failed to pull categories: $e');
+    }
   }
 
   Future<void> _pullItems() async {
     print('   📥 Pulling items...');
+    try {
+      final remoteItems = await _syncClient.from('items').select();
+      print('      Found ${remoteItems.length} remote items');
+
+      int inserted = 0;
+      int updated = 0;
+      int skipped = 0;
+
+      for (final remote in remoteItems) {
+        final cloudId = remote['cloud_id'] as String?;
+        if (cloudId == null) continue;
+
+        // Resolve foreign key: organization_id
+        final orgId = remote['organization_id'];
+        if (orgId == null) {
+          skipped++;
+          continue;
+        }
+
+        // For items, organization_id can be either cloud_id (string) or local id (int)
+        // We need to handle both cases
+        Organization? org;
+        if (orgId is String) {
+          org = await db.organizationsDao.getOrganizationByCloudId(orgId);
+        } else if (orgId is int) {
+          org = await db.organizationsDao.getOrganizationById(orgId);
+        }
+
+        if (org == null) {
+          skipped++;
+          print('      ⚠️ Skipped item ${remote['name']} (missing organization locally)');
+          continue;
+        }
+
+        // Resolve category_id if present
+        int? categoryId;
+        final catId = remote['category_id'];
+        if (catId != null) {
+          Category? cat;
+          if (catId is String) {
+            cat = await db.categoriesDao.getCategoryByCloudId(catId);
+          } else if (catId is int) {
+            cat = await db.categoriesDao.getCategoryById(catId);
+          }
+          categoryId = cat?.id;
+        }
+
+        // Check if we have this item locally
+        final existing = await db.itemsDao.getItemByCloudId(cloudId);
+
+        if (existing == null) {
+          // Insert new item from cloud
+          await db.into(db.items).insert(
+            ItemsCompanion.insert(
+              cloudId: cloudId,
+              name: remote['name'] as String,
+              description: Value(remote['description'] as String?),
+              stock: Value(remote['stock'] as int? ?? 0),
+              criticalLevel: Value(remote['critical_level'] as int? ?? 0),
+              sold: Value(remote['sold'] as int? ?? 0),
+              spoilage: Value(remote['spoilage'] as int? ?? 0),
+              price: Value((remote['price'] as num?)?.toDouble() ?? 0.0),
+              cost: Value((remote['cost'] as num?)?.toDouble() ?? 0.0),
+              organizationId: org.id,
+              categoryId: Value(categoryId),
+              masterItemId: Value(remote['master_item_id'] as String?),
+              isActive: Value(remote['is_active'] as bool? ?? true),
+              needsSync: const Value(false),
+            ),
+          );
+          inserted++;
+          print('      ✅ Inserted item: ${remote['name']}');
+        } else {
+          // Update existing item
+          await db.update(db.items).replace(
+            Item(
+              id: existing.id,
+              cloudId: cloudId,
+              name: remote['name'] as String,
+              description: remote['description'] as String?,
+              stock: remote['stock'] as int? ?? 0,
+              criticalLevel: remote['critical_level'] as int? ?? 0,
+              sold: remote['sold'] as int? ?? 0,
+              spoilage: remote['spoilage'] as int? ?? 0,
+              price: (remote['price'] as num?)?.toDouble() ?? 0.0,
+              cost: (remote['cost'] as num?)?.toDouble() ?? 0.0,
+              organizationId: org.id,
+              categoryId: categoryId,
+              masterItemId: remote['master_item_id'] as String?,
+              isActive: remote['is_active'] as bool? ?? true,
+              createdAt: existing.createdAt,
+              updatedAt: DateTime.parse(remote['updated_at'] as String? ?? DateTime.now().toIso8601String()),
+              lastSyncedAt: DateTime.now(),
+              needsSync: false,
+            ),
+          );
+          updated++;
+        }
+      }
+
+      if (inserted > 0) print('      📥 Inserted $inserted new items');
+      if (updated > 0) print('      🔄 Updated $updated existing items');
+      if (skipped > 0) print('      ⚠️ Skipped $skipped items (missing FKs)');
+    } catch (e) {
+      print('      ❌ Failed to pull items: $e');
+    }
   }
 
   Future<void> _pullIngredients() async {
     print('   📥 Pulling ingredients...');
+    try {
+      final remoteIngredients = await _syncClient.from('ingredients').select();
+      print('      Found ${remoteIngredients.length} remote ingredients');
+
+      int inserted = 0;
+      int updated = 0;
+      int skipped = 0;
+
+      for (final remote in remoteIngredients) {
+        final cloudId = remote['cloud_id'] as String?;
+        if (cloudId == null) continue;
+
+        // Resolve foreign key: commissary_id
+        final commissaryId = remote['commissary_id'];
+        if (commissaryId == null) {
+          skipped++;
+          continue;
+        }
+
+        // Find local commissary
+        Organization? commissary;
+        if (commissaryId is String) {
+          commissary = await db.organizationsDao.getOrganizationByCloudId(commissaryId);
+        } else if (commissaryId is int) {
+          commissary = await db.organizationsDao.getOrganizationById(commissaryId);
+        }
+
+        if (commissary == null) {
+          skipped++;
+          print('      ⚠️ Skipped ingredient ${remote['name']} (missing commissary locally)');
+          continue;
+        }
+
+        // Check if we have this ingredient locally
+        final existing = await db.ingredientsDao.getIngredientByCloudId(cloudId);
+
+        if (existing == null) {
+          // Insert new ingredient from cloud
+          await db.into(db.ingredients).insert(
+            IngredientsCompanion.insert(
+              cloudId: cloudId,
+              name: remote['name'] as String,
+              unit: remote['unit'] as String,
+              stock: Value((remote['stock'] as num?)?.toDouble() ?? 0.0),
+              criticalLevel: Value((remote['critical_level'] as num?)?.toDouble() ?? 0.0),
+              costPerUnit: Value((remote['cost_per_unit'] as num?)?.toDouble() ?? 0.0),
+              commissaryId: commissary.id,
+              isActive: Value(remote['is_active'] as bool? ?? true),
+              needsSync: const Value(false),
+            ),
+          );
+          inserted++;
+          print('      ✅ Inserted ingredient: ${remote['name']}');
+        } else {
+          // Update existing ingredient
+          await db.update(db.ingredients).replace(
+            Ingredient(
+              id: existing.id,
+              cloudId: cloudId,
+              name: remote['name'] as String,
+              unit: remote['unit'] as String,
+              stock: (remote['stock'] as num?)?.toDouble() ?? 0.0,
+              criticalLevel: (remote['critical_level'] as num?)?.toDouble() ?? 0.0,
+              costPerUnit: (remote['cost_per_unit'] as num?)?.toDouble() ?? 0.0,
+              commissaryId: commissary.id,
+              isActive: remote['is_active'] as bool? ?? true,
+              createdAt: existing.createdAt,
+              updatedAt: DateTime.parse(remote['updated_at'] as String? ?? DateTime.now().toIso8601String()),
+              lastSyncedAt: DateTime.now(),
+              needsSync: false,
+            ),
+          );
+          updated++;
+        }
+      }
+
+      if (inserted > 0) print('      📥 Inserted $inserted new ingredients');
+      if (updated > 0) print('      🔄 Updated $updated existing ingredients');
+      if (skipped > 0) print('      ⚠️ Skipped $skipped ingredients (missing FKs)');
+    } catch (e) {
+      print('      ❌ Failed to pull ingredients: $e');
+    }
   }
 
   Future<void> _pullReplenishmentRequests() async {
     print('   📥 Pulling replenishment requests...');
+    // TODO: Implement if needed for your app
   }
 
   Future<void> _pullStockChanges() async {
     print('   📥 Pulling stock changes...');
+    // TODO: Implement if needed for your app
   }
 
   // ============================================================================
   // UTILITIES
   // ============================================================================
+
+  /// Delete item permanently from cloud
+  Future<void> deleteItemFromCloud(String cloudId) async {
+    try {
+      print('🗑️ Deleting item from cloud: $cloudId');
+      await _syncClient.from('items').delete().eq('cloud_id', cloudId);
+      print('✅ Item deleted from cloud');
+    } catch (e) {
+      print('❌ Failed to delete item from cloud: $e');
+      rethrow;
+    }
+  }
 
   bool get isSyncing => _isSyncing;
   bool get isOnline => _isOnline;
