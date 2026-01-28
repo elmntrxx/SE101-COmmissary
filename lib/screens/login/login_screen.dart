@@ -134,41 +134,15 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildHeader() {
     return Column(
       children: [
-        Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(60),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withOpacity(0.2),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: const Icon(
-            Icons.store,
-            size: 60,
-            color: Color(0xFFEF4848),
-          ),
+        SizedBox(
+          width: 300,
+          child: Image.asset(imageAll, height: 80, fit: BoxFit.contain),
         ),
-        const SizedBox(height: 24),
-        const Text(
-          'Chicken Joo',
-          style: TextStyle(
-            fontSize: 36,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            fontFamily: fontAll,
-          ),
-        ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 32),
         const Text(
           'COMMISSARY',
           style: TextStyle(
-            fontSize: 18,
+            fontSize: 25,
             fontWeight: FontWeight.w600,
             color: Colors.white70,
             letterSpacing: 4,

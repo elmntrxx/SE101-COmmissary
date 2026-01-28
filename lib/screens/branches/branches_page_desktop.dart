@@ -14,7 +14,7 @@ class BranchesPageDesktop extends StatelessWidget {
       child: MouseRegion(
         cursor: SystemMouseCursors.click,
         child: GestureDetector(
-          onTap: () => state.setState(() => state.selectedTab = index),
+          onTap: () => state.setSelectedTab(index),
           child: Container(
             height: 45,
             alignment: Alignment.center,
@@ -200,7 +200,7 @@ class BranchesPageDesktop extends StatelessWidget {
         ];
       }).toList(),
       smallHeaderWidth: 20,
-      largeHeaderWidth: 80,
+      largeHeaderWidth: 60,
     );
   }
 
