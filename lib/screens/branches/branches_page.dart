@@ -1,6 +1,7 @@
 // lib/screens/branches/branches_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:uuid/uuid.dart';
 import '../../app_globals.dart';
@@ -128,6 +129,10 @@ class BranchesPageState extends State<BranchesPage> {
                       labelText: 'Phone',
                       prefixIcon: Icon(Icons.phone),
                     ),
+                    keyboardType: TextInputType.phone,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                    ],
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -290,6 +295,10 @@ class BranchesPageState extends State<BranchesPage> {
                         labelText: 'Phone',
                         prefixIcon: Icon(Icons.phone),
                       ),
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                      ],
                     ),
                     const SizedBox(height: 16),
                     TextField(
