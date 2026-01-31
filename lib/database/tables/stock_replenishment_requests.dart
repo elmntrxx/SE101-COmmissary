@@ -1,43 +1,70 @@
 // lib/database/tables/stock_replenishment_requests.dart
 import 'package:drift/drift.dart';
+import 'items.dart';
+import 'organizations.dart';
+import 'users.dart';
 
-/// Stock replenishment requests - Franchisees request stock from commissary
+/// StockReplenishmentRequests table - Franchisee requests items from Commissary
+///
+/// Schema matches Supabase table:
+/// - pending: Request created by franchisee
+/// - approved: Commissary approved, stock transferred
+/// - rejected: Commissary rejected
+/// - delivered: Items physically delivered
 class StockReplenishmentRequests extends Table {
   IntColumn get id => integer().autoIncrement()();
-  TextColumn get cloudId => text().unique()();
 
-  // Requesting franchisee
-  IntColumn get franchiseeId => integer()();
+  /// Requesting franchisee organization
+  @ReferenceName('franchiseeReplenishmentRequests')
+  IntColumn get franchiseeId => integer().references(Organizations, #id)();
 
-  // Target commissary
-  IntColumn get commissaryId => integer()();
+  /// Target commissary organization
+  @ReferenceName('commissaryReplenishmentRequests')
+  IntColumn get commissaryId => integer().references(Organizations, #id)();
 
-  // Item being requested
-  IntColumn get itemId => integer()();
+  /// Item being requested
+  IntColumn get itemId => integer().references(Items, #id)();
 
-  // Quantity requested
+  /// Quantity requested by franchisee
   IntColumn get quantityRequested => integer()();
 
-  // Quantity approved (may differ from requested)
-  IntColumn get quantityApproved => integer().nullable()();
+  /// Status: 'pending', 'approved', 'rejected', 'delivered'
+  TextColumn get status => text()
+      .withLength(min: 3, max: 50)
+      .withDefault(const Constant('pending'))();
 
-  // Status: 'draft', 'pending', 'approved', 'rejected', 'fulfilled'
-  TextColumn get status =>
-      text().withDefault(const Constant('draft'))();
+  /// User who created the request
+  @ReferenceName('replenishmentRequester')
+  IntColumn get requestedBy => integer().references(Users, #id)();
 
-  // Notes from requester and approver
-  TextColumn get requesterNotes => text().nullable()();
-  TextColumn get approverNotes => text().nullable()();
+  DateTimeColumn get requestedAt =>
+      dateTime().clientDefault(() => DateTime.now())();
 
-  // User who processed the request
-  IntColumn get processedBy => integer().nullable()();
-  DateTimeColumn get processedAt => dateTime().nullable()();
+  /// User who reviewed/processed the request (commissary user)
+  @ReferenceName('replenishmentReviewer')
+  IntColumn get reviewedBy => integer().nullable().references(Users, #id)();
 
-  // Sync timestamps
+  DateTimeColumn get reviewedAt => dateTime().nullable()();
+
+  /// Expected delivery date (optional)
+  DateTimeColumn get deliveryDate => dateTime().nullable()();
+
+  /// Notes from the franchisee (reason for request)
+  TextColumn get franchiseeNotes => text().nullable().withLength(max: 1000)();
+
+  /// Notes from the commissary (approval/rejection reason)
+  TextColumn get commissaryNotes => text().nullable().withLength(max: 1000)();
+
+  /// Timestamps
   DateTimeColumn get createdAt =>
-      dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get updatedAt =>
-      dateTime().withDefault(currentDateAndTime)();
-  DateTimeColumn get lastSyncedAt => dateTime().nullable()();
-  BoolColumn get needsSync => boolean().withDefault(const Constant(true))();
+      dateTime().clientDefault(() => DateTime.now())();
+  DateTimeColumn get lastUpdated =>
+      dateTime().clientDefault(() => DateTime.now())();
+
+  /// Soft delete
+  BoolColumn get isDeleted => boolean().withDefault(const Constant(false))();
+
+  /// Sync fields
+  BoolColumn get isSynced => boolean().withDefault(const Constant(false))();
+  TextColumn get cloudId => text().nullable()();
 }
