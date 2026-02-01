@@ -631,31 +631,41 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           const SizedBox(height: 16),
           
-          Wrap(
-            spacing: 16,
-            runSpacing: 16,
-            children: [
-              _buildQuickAction(
-                icon: Icons.add_business,
-                label: 'Add Branch',
-                onTap: () => switchPage(1), // Navigate to Branches
-              ),
-              _buildQuickAction(
-                icon: Icons.add_box,
-                label: 'Add Item',
-                onTap: () => switchPage(2), // Navigate to Inventory
-              ),
-              _buildQuickAction(
-                icon: Icons.person_add,
-                label: 'Add Branch Admin',
-                onTap: () => switchPage(1), // Navigate to Branches
-              ),
-              _buildQuickAction(
-                icon: Icons.assessment,
-                label: 'View Reports',
-                onTap: () => switchPage(5), // Navigate to Reports
-              ),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final crossAxisCount = constraints.maxWidth > 600 ? 4 : 2;
+              
+              return GridView.count(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                crossAxisCount: crossAxisCount,
+                crossAxisSpacing: 12,
+                mainAxisSpacing: 12,
+                childAspectRatio: constraints.maxWidth > 600 ? 2.5 : 1.5,
+                children: [
+                  _buildQuickAction(
+                    icon: Icons.add_business,
+                    label: 'Add Branch',
+                    onTap: () => switchPage(1),
+                  ),
+                  _buildQuickAction(
+                    icon: Icons.add_box,
+                    label: 'Add Item',
+                    onTap: () => switchPage(2),
+                  ),
+                  _buildQuickAction(
+                    icon: Icons.person_add,
+                    label: 'Add Branch Admin',
+                    onTap: () => switchPage(1),
+                  ),
+                  _buildQuickAction(
+                    icon: Icons.assessment,
+                    label: 'View Reports',
+                    onTap: () => switchPage(5),
+                  ),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -732,22 +742,29 @@ class _HomeScreenState extends State<HomeScreen> {
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey.shade200),
         ),
-        child: Row(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(icon, color: const Color(0xFFEF4848)),
-            const SizedBox(width: 12),
-            Text(
-              label,
-              style: const TextStyle(
-                fontWeight: FontWeight.w500,
-                fontFamily: fontAll,
+            Icon(icon, color: const Color(0xFFEF4848), size: 24),
+            const SizedBox(height: 6),
+            Flexible(
+              child: Text(
+                label,
+                textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
+                maxLines: 2,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w500,
+                  fontFamily: fontAll,
+                  fontSize: 12,
+                ),
               ),
             ),
           ],

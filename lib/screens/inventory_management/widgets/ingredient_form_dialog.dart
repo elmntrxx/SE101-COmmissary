@@ -1,6 +1,7 @@
 // lib/screens/inventory_management/widgets/ingredient_form_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' hide Column;
 import '../../../database/app_database.dart';
@@ -49,19 +50,42 @@ class _IngredientFormDialogState extends State<IngredientFormDialog> {
     'bags',
   ];
 
+  // Number formatter for thousands separator
+  static final _numberFormat = NumberFormat('#,##0.##');
+
+  String _formatWithCommas(String value) {
+    if (value.isEmpty) return value;
+    // Remove commas and get only digits (and decimal point)
+    final cleanValue = value.replaceAll(',', '');
+    // Extract digits only (before decimal) to check length
+    final parts = cleanValue.split('.');
+    final integerPart = parts[0].replaceAll(RegExp(r'[^0-9]'), '');
+    // Limit to 8 digits
+    if (integerPart.length > 8) {
+      final truncatedInt = integerPart.substring(0, 8);
+      final truncatedValue = parts.length > 1 ? '$truncatedInt.${parts[1]}' : truncatedInt;
+      final number = double.tryParse(truncatedValue);
+      if (number == null) return value;
+      return _numberFormat.format(number);
+    }
+    final number = double.tryParse(cleanValue);
+    if (number == null) return value;
+    return _numberFormat.format(number);
+  }
+
+  String _removeCommas(String value) {
+    return value.replaceAll(',', '');
+  }
+
   @override
   void initState() {
     super.initState();
     if (widget.ingredient != null) {
       _nameController.text = widget.ingredient!.name;
       _unitController.text = widget.ingredient!.unit;
-      _stockController.text = widget.ingredient!.stock.toString();
-      _costController.text = widget.ingredient!.costPerUnit.toString();
-      _criticalLevelController.text = widget.ingredient!.criticalLevel.toString();
-    } else {
-      _stockController.text = '0';
-      _costController.text = '0';
-      _criticalLevelController.text = '10';
+      _stockController.text = _formatWithCommas(widget.ingredient!.stock.toString());
+      _costController.text = _formatWithCommas(widget.ingredient!.costPerUnit.toString());
+      _criticalLevelController.text = _formatWithCommas(widget.ingredient!.criticalLevel.toString());
     }
   }
 
@@ -85,9 +109,9 @@ class _IngredientFormDialogState extends State<IngredientFormDialog> {
           : Value(_uuid.v4()),
       name: Value(_nameController.text.trim()),
       unit: Value(_unitController.text.trim()),
-      stock: Value(double.tryParse(_stockController.text) ?? 0),
-      costPerUnit: Value(double.tryParse(_costController.text) ?? 0),
-      criticalLevel: Value(double.tryParse(_criticalLevelController.text) ?? 10),
+      stock: Value(double.tryParse(_removeCommas(_stockController.text)) ?? 0),
+      costPerUnit: Value(double.tryParse(_removeCommas(_costController.text)) ?? 0),
+      criticalLevel: Value(double.tryParse(_removeCommas(_criticalLevelController.text)) ?? 10),
       commissaryId: Value(widget.commissaryId),
       isActive: const Value(true),
       needsSync: const Value(true),
@@ -153,27 +177,29 @@ class _IngredientFormDialogState extends State<IngredientFormDialog> {
 
                   // Unit of measurement
                   Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(
-                        flex: 2,
                         child: TextFormField(
                           controller: _unitController,
+                          readOnly: true,
                           decoration: const InputDecoration(
                             labelText: 'Unit of Measurement *',
-                            hintText: 'e.g., grams, pieces',
+                            hintText: 'Select a unit',
                             prefixIcon: Icon(Icons.straighten),
                             border: OutlineInputBorder(),
                           ),
                           validator: (value) {
                             if (value == null || value.trim().isEmpty) {
-                              return 'Please enter unit';
+                              return 'Please select a unit';
                             }
                             return null;
                           },
                         ),
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
+                      const SizedBox(width: 8),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 4),
                         child: PopupMenuButton<String>(
                           tooltip: 'Common units',
                           icon: const Icon(Icons.arrow_drop_down_circle),
@@ -206,11 +232,25 @@ class _IngredientFormDialogState extends State<IngredientFormDialog> {
                           ),
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
-                              RegExp(r'^\d*\.?\d{0,2}$'),
+                              RegExp(r'[\d,.]'),
                             ),
                           ],
+                          onChanged: (value) {
+                            final cursorPosition = _costController.selection.baseOffset;
+                            final oldLength = value.length;
+                            final formatted = _formatWithCommas(value);
+                            if (formatted != value) {
+                              _costController.value = TextEditingValue(
+                                text: formatted,
+                                selection: TextSelection.collapsed(
+                                  offset: cursorPosition + (formatted.length - oldLength),
+                                ),
+                              );
+                            }
+                          },
                           decoration: const InputDecoration(
                             labelText: 'Cost per Unit *',
+                            hintText: '0',
                             prefixText: '₱ ',
                             prefixIcon: Icon(Icons.attach_money),
                             border: OutlineInputBorder(),
@@ -219,7 +259,7 @@ class _IngredientFormDialogState extends State<IngredientFormDialog> {
                             if (value == null || value.isEmpty) {
                               return 'Enter cost';
                             }
-                            final cost = double.tryParse(value);
+                            final cost = double.tryParse(value.replaceAll(',', ''));
                             if (cost == null || cost < 0) {
                               return 'Invalid cost';
                             }
@@ -237,11 +277,25 @@ class _IngredientFormDialogState extends State<IngredientFormDialog> {
                           ),
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
-                              RegExp(r'^\d*\.?\d{0,2}$'),
+                              RegExp(r'[\d,.]'),
                             ),
                           ],
+                          onChanged: (value) {
+                            final cursorPosition = _stockController.selection.baseOffset;
+                            final oldLength = value.length;
+                            final formatted = _formatWithCommas(value);
+                            if (formatted != value) {
+                              _stockController.value = TextEditingValue(
+                                text: formatted,
+                                selection: TextSelection.collapsed(
+                                  offset: cursorPosition + (formatted.length - oldLength),
+                                ),
+                              );
+                            }
+                          },
                           decoration: const InputDecoration(
                             labelText: 'Current Stock',
+                            hintText: '0',
                             prefixIcon: Icon(Icons.inventory),
                             border: OutlineInputBorder(),
                           ),
@@ -259,11 +313,25 @@ class _IngredientFormDialogState extends State<IngredientFormDialog> {
                     ),
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(
-                        RegExp(r'^\d*\.?\d{0,2}$'),
+                        RegExp(r'[\d,.]'),
                       ),
                     ],
+                    onChanged: (value) {
+                      final cursorPosition = _criticalLevelController.selection.baseOffset;
+                      final oldLength = value.length;
+                      final formatted = _formatWithCommas(value);
+                      if (formatted != value) {
+                        _criticalLevelController.value = TextEditingValue(
+                          text: formatted,
+                          selection: TextSelection.collapsed(
+                            offset: cursorPosition + (formatted.length - oldLength),
+                          ),
+                        );
+                      }
+                    },
                     decoration: const InputDecoration(
                       labelText: 'Critical Level (Low Stock Alert)',
+                      hintText: '10',
                       helperText: 'Alert when stock falls below this level',
                       prefixIcon: Icon(Icons.warning_amber),
                       border: OutlineInputBorder(),

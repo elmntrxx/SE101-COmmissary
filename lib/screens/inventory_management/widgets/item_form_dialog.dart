@@ -1,6 +1,7 @@
 // lib/screens/inventory_management/widgets/item_form_dialog.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:intl/intl.dart';
 import 'package:uuid/uuid.dart';
 import 'package:drift/drift.dart' hide Column;
 import '../../../database/app_database.dart';
@@ -45,15 +46,42 @@ class _ItemFormDialogState extends State<ItemFormDialog> {
 
   bool get isEditing => widget.item != null;
 
+  // Number formatter for thousands separator
+  final NumberFormat _numberFormat = NumberFormat('#,##0.##');
+
+  String _formatWithCommas(String value) {
+    if (value.isEmpty) return value;
+    // Remove commas and get only digits (and decimal point)
+    final cleanValue = value.replaceAll(',', '');
+    // Extract digits only (before decimal) to check length
+    final parts = cleanValue.split('.');
+    final integerPart = parts[0].replaceAll(RegExp(r'[^0-9]'), '');
+    // Limit to 8 digits
+    if (integerPart.length > 8) {
+      final truncatedInt = integerPart.substring(0, 8);
+      final truncatedValue = parts.length > 1 ? '$truncatedInt.${parts[1]}' : truncatedInt;
+      final number = double.tryParse(truncatedValue);
+      if (number == null) return value;
+      return _numberFormat.format(number);
+    }
+    final number = double.tryParse(cleanValue);
+    if (number == null) return value;
+    return _numberFormat.format(number);
+  }
+
+  String _removeCommas(String value) {
+    return value.replaceAll(',', '');
+  }
+
   @override
   void initState() {
     super.initState();
     if (widget.item != null) {
       _nameController.text = widget.item!.name;
       _descriptionController.text = widget.item!.description ?? '';
-      _priceController.text = widget.item!.price.toString();
-      _stockController.text = widget.item!.stock.toString();
-      _criticalLevelController.text = widget.item!.criticalLevel.toString();
+      _priceController.text = _formatWithCommas(widget.item!.price.toString());
+      _stockController.text = _formatWithCommas(widget.item!.stock.toString());
+      _criticalLevelController.text = _formatWithCommas(widget.item!.criticalLevel.toString());
       _selectedCategoryId = widget.item!.categoryId;
 
       // Load existing recipe
@@ -72,10 +100,6 @@ class _ItemFormDialogState extends State<ItemFormDialog> {
         }).toList();
         _calculateCost();
       }
-    } else {
-      _stockController.text = '0';
-      _priceController.text = '0';
-      _criticalLevelController.text = '10';
     }
   }
 
@@ -188,10 +212,10 @@ class _ItemFormDialogState extends State<ItemFormDialog> {
       description: Value(_descriptionController.text.trim().isEmpty
           ? null
           : _descriptionController.text.trim()),
-      price: Value(double.tryParse(_priceController.text) ?? 0),
+      price: Value(double.tryParse(_removeCommas(_priceController.text)) ?? 0),
       cost: Value(_calculatedCost),
-      stock: Value(int.tryParse(_stockController.text) ?? 0),
-      criticalLevel: Value(int.tryParse(_criticalLevelController.text) ?? 10),
+      stock: Value(int.tryParse(_removeCommas(_stockController.text)) ?? 0),
+      criticalLevel: Value(int.tryParse(_removeCommas(_criticalLevelController.text)) ?? 10),
       categoryId: Value(_selectedCategoryId),
       organizationId: Value(widget.organizationId),
       isActive: const Value(true),
@@ -204,9 +228,10 @@ class _ItemFormDialogState extends State<ItemFormDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final profitMargin = (double.tryParse(_priceController.text) ?? 0) - _calculatedCost;
-    final profitPercentage = (double.tryParse(_priceController.text) ?? 0) > 0
-        ? (profitMargin / (double.tryParse(_priceController.text) ?? 1)) * 100
+    final priceValue = double.tryParse(_removeCommas(_priceController.text)) ?? 0;
+    final profitMargin = priceValue - _calculatedCost;
+    final profitPercentage = priceValue > 0
+        ? (profitMargin / priceValue) * 100
         : 0;
 
     return Dialog(
@@ -325,16 +350,28 @@ class _ItemFormDialogState extends State<ItemFormDialog> {
                           ),
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
-                              RegExp(r'^\d*\.?\d{0,2}$'),
+                              RegExp(r'[\d,.]'),
                             ),
                           ],
                           decoration: const InputDecoration(
                             labelText: 'Selling Price *',
+                            hintText: '0',
                             prefixText: '₱ ',
                             prefixIcon: Icon(Icons.sell),
                             border: OutlineInputBorder(),
                           ),
                           onChanged: (value) {
+                            final cursorPosition = _priceController.selection.baseOffset;
+                            final oldLength = value.length;
+                            final formatted = _formatWithCommas(value);
+                            if (formatted != value) {
+                              _priceController.value = TextEditingValue(
+                                text: formatted,
+                                selection: TextSelection.collapsed(
+                                  offset: cursorPosition + (formatted.length - oldLength),
+                                ),
+                              );
+                            }
                             setState(() {});
                           },
                           validator: (value) {
@@ -351,13 +388,29 @@ class _ItemFormDialogState extends State<ItemFormDialog> {
                           controller: _stockController,
                           keyboardType: TextInputType.number,
                           inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[\d,]'),
+                            ),
                           ],
                           decoration: const InputDecoration(
                             labelText: 'Current Stock',
+                            hintText: '0',
                             prefixIcon: Icon(Icons.inventory),
                             border: OutlineInputBorder(),
                           ),
+                          onChanged: (value) {
+                            final cursorPosition = _stockController.selection.baseOffset;
+                            final oldLength = value.length;
+                            final formatted = _formatWithCommas(value);
+                            if (formatted != value) {
+                              _stockController.value = TextEditingValue(
+                                text: formatted,
+                                selection: TextSelection.collapsed(
+                                  offset: cursorPosition + (formatted.length - oldLength),
+                                ),
+                              );
+                            }
+                          },
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -366,13 +419,29 @@ class _ItemFormDialogState extends State<ItemFormDialog> {
                           controller: _criticalLevelController,
                           keyboardType: TextInputType.number,
                           inputFormatters: [
-                            FilteringTextInputFormatter.digitsOnly,
+                            FilteringTextInputFormatter.allow(
+                              RegExp(r'[\d,]'),
+                            ),
                           ],
                           decoration: const InputDecoration(
                             labelText: 'Critical Level',
+                            hintText: '10',
                             prefixIcon: Icon(Icons.warning),
                             border: OutlineInputBorder(),
                           ),
+                          onChanged: (value) {
+                            final cursorPosition = _criticalLevelController.selection.baseOffset;
+                            final oldLength = value.length;
+                            final formatted = _formatWithCommas(value);
+                            if (formatted != value) {
+                              _criticalLevelController.value = TextEditingValue(
+                                text: formatted,
+                                selection: TextSelection.collapsed(
+                                  offset: cursorPosition + (formatted.length - oldLength),
+                                ),
+                              );
+                            }
+                          },
                         ),
                       ),
                     ],
@@ -667,6 +736,30 @@ class _AddIngredientToRecipeDialogState
   int? _selectedIngredientId;
   final _quantityController = TextEditingController();
 
+  // Number formatter for thousands separator
+  final NumberFormat _numberFormat = NumberFormat('#,##0.##');
+
+  String _formatWithCommas(String value) {
+    if (value.isEmpty) return value;
+    final cleanValue = value.replaceAll(',', '');
+    final parts = cleanValue.split('.');
+    final integerPart = parts[0].replaceAll(RegExp(r'[^0-9]'), '');
+    if (integerPart.length > 8) {
+      final truncatedInt = integerPart.substring(0, 8);
+      final truncatedValue = parts.length > 1 ? '$truncatedInt.${parts[1]}' : truncatedInt;
+      final number = double.tryParse(truncatedValue);
+      if (number == null) return value;
+      return _numberFormat.format(number);
+    }
+    final number = double.tryParse(cleanValue);
+    if (number == null) return value;
+    return _numberFormat.format(number);
+  }
+
+  String _removeCommas(String value) {
+    return value.replaceAll(',', '');
+  }
+
   Ingredient? get _selectedIngredient => widget.availableIngredients
       .where((i) => i.id == _selectedIngredientId)
       .firstOrNull;
@@ -711,8 +804,22 @@ class _AddIngredientToRecipeDialogState
               controller: _quantityController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
               inputFormatters: [
-                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}$')),
+                FilteringTextInputFormatter.allow(RegExp(r'[\d,.]')),
               ],
+              onChanged: (value) {
+                final cursorPosition = _quantityController.selection.baseOffset;
+                final oldLength = value.length;
+                final formatted = _formatWithCommas(value);
+                if (formatted != value) {
+                  _quantityController.value = TextEditingValue(
+                    text: formatted,
+                    selection: TextSelection.collapsed(
+                      offset: cursorPosition + (formatted.length - oldLength),
+                    ),
+                  );
+                }
+                setState(() {});
+              },
               decoration: InputDecoration(
                 labelText: 'Quantity',
                 suffixText: _selectedIngredient?.unit ?? '',
@@ -733,7 +840,7 @@ class _AddIngredientToRecipeDialogState
                   children: [
                     const Text('Cost contribution:'),
                     Text(
-                      '₱${((double.tryParse(_quantityController.text) ?? 0) * _selectedIngredient!.costPerUnit).toStringAsFixed(2)}',
+                      '₱${((double.tryParse(_removeCommas(_quantityController.text)) ?? 0) * _selectedIngredient!.costPerUnit).toStringAsFixed(2)}',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                   ],
@@ -752,7 +859,7 @@ class _AddIngredientToRecipeDialogState
           onPressed: _selectedIngredientId != null &&
                   _quantityController.text.isNotEmpty
               ? () {
-                  final quantity = double.tryParse(_quantityController.text);
+                  final quantity = double.tryParse(_removeCommas(_quantityController.text));
                   if (quantity != null && quantity > 0) {
                     widget.onAdd(_selectedIngredientId!, quantity);
                     Navigator.pop(context);
