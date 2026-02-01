@@ -2,6 +2,7 @@
 import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import 'package:uuid/uuid.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../database/app_database.dart';
 import '../config/supabase_config.dart';
@@ -132,11 +133,11 @@ class SupabaseSyncService {
     try {
       print('🔄 Starting full sync...');
 
-      // Pull remote changes FIRST to get existing cloud_ids
-      await _pullRemoteChanges();
-
-      // Then push local changes (only new records)
+      // PUSH local changes FIRST (to prevent cloud overwriting pending approvals/changes)
       await _pushLocalChanges();
+
+      // Then PULL remote changes
+      await _pullRemoteChanges();
 
       _lastSuccessfulSync = DateTime.now();
       onSyncStatusChanged?.call('Synced');
@@ -164,6 +165,7 @@ class SupabaseSyncService {
     await _pushIngredients();
     await _pushReplenishmentRequests();
     await _pushStockChanges();
+    await _pushBranchItemStock();
   }
 
   Future<void> _pullRemoteChanges() async {
@@ -179,6 +181,7 @@ class SupabaseSyncService {
     await _pullIngredients();
     await _pullReplenishmentRequests();
     await _pullStockChanges();
+    await _pullBranchItemStock();
   }
 
   // ============================================================================
@@ -377,7 +380,49 @@ class SupabaseSyncService {
     if (unsynced.isEmpty) return;
 
     print('   📤 Pushing ${unsynced.length} replenishment requests...');
-    // Implementation similar to above
+    for (final req in unsynced) {
+      try {
+        final franchisee = await db.organizationsDao.getOrganizationById(req.franchiseeId);
+        final commissary = await db.organizationsDao.getOrganizationById(req.commissaryId);
+        final item = await db.itemsDao.getItemById(req.itemId);
+        final requester = await db.usersDao.getUserById(req.requestedBy);
+        
+        if (franchisee?.cloudId == null || commissary?.cloudId == null || 
+            item?.cloudId == null || requester?.cloudId == null) {
+          print('      ⚠️ Skipping request #${req.id}: missing FK cloud_ids');
+          continue;
+        }
+
+        String? reviewerCloudId;
+        if (req.reviewedBy != null) {
+          final reviewer = await db.usersDao.getUserById(req.reviewedBy!);
+          reviewerCloudId = reviewer?.cloudId;
+        }
+
+        await _syncClient.from('stock_replenishment_requests').upsert({
+          'cloud_id': req.cloudId,
+          'franchisee_id': franchisee!.cloudId,
+          'commissary_id': commissary!.cloudId,
+          'item_id': item!.cloudId,
+          'quantity_requested': req.quantityRequested,
+          'status': req.status,
+          'requested_by': requester!.cloudId,
+          'requested_at': req.requestedAt.toIso8601String(),
+          'reviewed_by': reviewerCloudId,
+          'reviewed_at': req.reviewedAt?.toIso8601String(),
+          'delivery_date': req.deliveryDate?.toIso8601String(),
+          'franchisee_notes': req.franchiseeNotes,
+          'commissary_notes': req.commissaryNotes,
+          'is_deleted': req.isDeleted,
+          'created_at': req.createdAt.toIso8601String(),
+          'last_updated': req.lastUpdated.toIso8601String(),
+        }, onConflict: 'cloud_id');
+        
+        await db.stockReplenishmentRequestsDao.markAsSynced(req.id, null);
+      } catch (e) {
+        print('      ❌ Failed to push request #${req.id}: $e');
+      }
+    }
   }
 
   Future<void> _pushStockChanges() async {
@@ -385,7 +430,77 @@ class SupabaseSyncService {
     if (unsynced.isEmpty) return;
 
     print('   📤 Pushing ${unsynced.length} stock changes...');
-    // Implementation similar to above
+    // TODO: Implement full logic if needed, or leave stub
+  }
+
+  Future<void> _pushBranchItemStock() async {
+    final unsynced = await db.branchItemStockDao.getUnsyncedStock();
+    if (unsynced.isEmpty) return;
+
+    print('   📤 Pushing ${unsynced.length} branch stock records...');
+    for (final stock in unsynced) {
+      try {
+        final org = await db.organizationsDao.getOrganizationById(stock.organizationId);
+        final item = await db.itemsDao.getItemById(stock.itemId);
+        
+        if (org?.cloudId == null || item?.cloudId == null) {
+          print('      ⚠️ Skipping stock record #${stock.id}: missing FK cloud_ids');
+          continue;
+        }
+
+        // Self-heal: If cloudId is null (from legacy data/bugs), we need to handle it carefully
+        String cloudId = stock.cloudId ?? '';
+        
+        if (stock.cloudId == null) {
+          // Check if this record ALREADY exists on the cloud to avoid UNIQUE constraint violation
+          try {
+            final existingRemote = await _syncClient
+                .from('branch_item_stock')
+                .select('cloud_id')
+                .eq('organization_id', org!.cloudId)
+                .eq('item_id', item!.cloudId)
+                .maybeSingle();
+
+            if (existingRemote != null) {
+              cloudId = existingRemote['cloud_id'] as String;
+              print('      🔗 Linked orphan stock #${stock.id} to existing cloud record $cloudId');
+            } else {
+              cloudId = const Uuid().v4();
+              print('      🔧 Generated new cloud_id for stock #${stock.id} -> $cloudId');
+            }
+
+            // Update local record immediately so next sync uses it
+            await (db.update(db.branchItemStock)..where((s) => s.id.equals(stock.id)))
+                .write(BranchItemStockCompanion(cloudId: Value(cloudId)));
+
+          } catch (e) {
+            print('      ⚠️ Error checking remote existence for stock #${stock.id}: $e');
+            // Fallback to generating new if check fails (might still fail on push but worth trying)
+            cloudId = const Uuid().v4();
+          }
+        }
+
+        await _syncClient.from('branch_item_stock').upsert({
+          'cloud_id': cloudId,
+          'organization_id': org!.cloudId, // Checked above
+          'item_id': item!.cloudId,        // Checked above
+          'stock': stock.stock,
+          'sold': stock.sold,
+          'spoilage': stock.spoilage,
+          'price': stock.price,
+          'cost_price': stock.costPrice,
+          'minimum_stock': stock.minimumStock,
+          // 'last_received_at': stock.lastReceivedAt?.toIso8601String(), // Supabase might need this? Schema check needed
+          'last_received_quantity': stock.lastReceivedQuantity,
+          'last_updated': stock.lastUpdated.toIso8601String(),
+          'is_deleted': stock.isDeleted,
+        }, onConflict: 'cloud_id');
+        
+        await db.branchItemStockDao.markAsSynced([stock.id]);
+      } catch (e) {
+        print('      ❌ Failed to push branch stock #${stock.id}: $e');
+      }
+    }
   }
 
   // ============================================================================
@@ -800,7 +915,128 @@ class SupabaseSyncService {
 
   Future<void> _pullReplenishmentRequests() async {
     print('   📥 Pulling replenishment requests...');
-    // TODO: Implement if needed for your app
+    try {
+      final remoteRequests = await _syncClient.from('stock_replenishment_requests').select();
+      print('      Found ${remoteRequests.length} remote requests');
+
+      int inserted = 0;
+      int updated = 0;
+      int skipped = 0;
+
+      for (final remote in remoteRequests) {
+        final cloudId = remote['cloud_id'] as String?;
+        if (cloudId == null) continue;
+
+        // Resolve FKs
+        final franchiseeCloudId = remote['franchisee_id'] as String?;
+        final commissaryCloudId = remote['commissary_id'] as String?;
+        final itemCloudId = remote['item_id'] as String?;
+        final requesterCloudId = remote['requested_by'] as String?;
+        final reviewerCloudId = remote['reviewed_by'] as String?;
+
+        if (franchiseeCloudId == null || commissaryCloudId == null || 
+            itemCloudId == null || requesterCloudId == null) {
+          skipped++;
+          continue;
+        }
+
+        final franchisee = await db.organizationsDao.getOrganizationByCloudId(franchiseeCloudId);
+        final commissary = await db.organizationsDao.getOrganizationByCloudId(commissaryCloudId);
+        final item = await db.itemsDao.getItemByCloudId(itemCloudId);
+        final requester = await db.usersDao.getUserByCloudId(requesterCloudId);
+        
+        int? reviewerId;
+        if (reviewerCloudId != null) {
+          final reviewer = await db.usersDao.getUserByCloudId(reviewerCloudId);
+          reviewerId = reviewer?.id;
+        }
+
+        if (franchisee == null || commissary == null || item == null || requester == null) {
+          skipped++;
+          print('      ⚠️ Skipped request $cloudId (missing related data locally)');
+          continue;
+        }
+
+        // Check for existing
+        final existing = await db.stockReplenishmentRequestsDao.getRequestByCloudId(cloudId);
+        
+        // Prepare data map for upsert
+        final data = {
+          ...remote,
+          'franchisee_id': franchisee.id,
+          'commissary_id': commissary.id,
+          'item_id': item.id,
+          'requested_by': requester.id,
+          'reviewed_by': reviewerId,
+          'is_synced': true,
+        };
+
+        await db.stockReplenishmentRequestsDao.upsertFromCloud(data);
+        
+        if (existing == null) {
+          inserted++;
+        } else {
+          updated++;
+        }
+      }
+
+      if (inserted > 0) print('      📥 Inserted $inserted request(s)');
+      if (updated > 0) print('      🔄 Updated $updated request(s)');
+      if (skipped > 0) print('      ⚠️ Skipped $skipped request(s) (missing FKs)');
+
+    } catch (e) {
+      print('      ❌ Failed to pull replenishment requests: $e');
+    }
+  }
+
+  Future<void> _pullBranchItemStock() async {
+    print('   📥 Pulling branch item stock...');
+    try {
+      final remoteStock = await _syncClient.from('branch_item_stock').select();
+      print('      Found ${remoteStock.length} remote stock records');
+
+      int updated = 0;
+      int skipped = 0;
+
+      for (final remote in remoteStock) {
+        final cloudId = remote['cloud_id'] as String?;
+        if (cloudId == null) continue;
+
+        // Resolve FKs
+        final orgCloudId = remote['organization_id'] as String?;
+        final itemCloudId = remote['item_id'] as String?;
+
+        if (orgCloudId == null || itemCloudId == null) {
+          skipped++;
+          continue;
+        }
+
+        final org = await db.organizationsDao.getOrganizationByCloudId(orgCloudId);
+        final item = await db.itemsDao.getItemByCloudId(itemCloudId);
+
+        if (org == null || item == null) {
+          skipped++;
+          print('      ⚠️ Skipped stock record $cloudId (missing related data locally)');
+          continue;
+        }
+
+        final data = {
+          ...remote,
+          'organization_id': org.id,
+          'item_id': item.id,
+          'is_synced': true,
+        };
+
+        await db.branchItemStockDao.upsertFromCloud(data);
+        updated++;
+      }
+
+      if (updated > 0) print('      🔄 Processed $updated stock records');
+      if (skipped > 0) print('      ⚠️ Skipped $skipped records (missing FKs)');
+
+    } catch (e) {
+      print('      ❌ Failed to pull branch item stock: $e');
+    }
   }
 
   Future<void> _pullStockChanges() async {

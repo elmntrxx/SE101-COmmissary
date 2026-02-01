@@ -19,6 +19,7 @@ import 'tables/ingredients.dart';
 import 'tables/recipe_ingredients.dart';
 import 'tables/stock_replenishment_requests.dart';
 import 'tables/stock_change_requests.dart';
+import 'tables/branch_item_stock.dart';
 
 // DAOs
 import 'daos/organizations_dao.dart';
@@ -30,6 +31,7 @@ import 'daos/ingredients_dao.dart';
 import 'daos/recipe_ingredients_dao.dart';
 import 'daos/stock_replenishment_requests_dao.dart';
 import 'daos/stock_change_requests_dao.dart';
+import 'daos/branch_item_stock_dao.dart';
 
 part 'app_database.g.dart';
 
@@ -45,6 +47,7 @@ part 'app_database.g.dart';
     RecipeIngredients,
     StockReplenishmentRequests,
     StockChangeRequests,
+    BranchItemStock,
   ],
   daos: [
     OrganizationsDao,
@@ -56,6 +59,7 @@ part 'app_database.g.dart';
     RecipeIngredientsDao,
     StockReplenishmentRequestsDao,
     StockChangeRequestsDao,
+    BranchItemStockDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -66,7 +70,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test(super.executor);
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
 
   @override
   MigrationStrategy get migration {
@@ -77,6 +81,24 @@ class AppDatabase extends _$AppDatabase {
         await _createIndexes();
         print('✅ Database created successfully!');
         print('ℹ️ Data will be synced from Supabase on first connection.');
+      },
+      onUpgrade: (Migrator m, int from, int to) async {
+        print('🔄 Upgrading database from $from to $to');
+        if (from < 2) {
+          // Version 2: Added BranchItemStock and updated StockReplenishmentRequests
+          print('📦 Creating branch_item_stock table...');
+          await m.createTable(branchItemStock);
+
+          print('📦 Recreating stock_replenishment_requests table...');
+          // Schema changed significantly, easier to recreate and let sync handle data
+          await m.deleteTable('stock_replenishment_requests');
+          await m.createTable(stockReplenishmentRequests);
+          
+          // Re-create index for requests
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_replenish_status ON stock_replenishment_requests(status)'
+          );
+        }
       },
       beforeOpen: (details) async {
         await customStatement('PRAGMA foreign_keys = ON');
