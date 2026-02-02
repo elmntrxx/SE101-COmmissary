@@ -67,8 +67,11 @@ class _RequestsPageState extends State<RequestsPage> {
       // 1. Check commissary stock
       final item = await db.itemsDao.getItemById(request.itemId);
       if (item == null) {
-        throw Exception('Item not found in commissary');
+        throw Exception('Item not found in commissary (itemId: ${request.itemId})');
       }
+
+      print('📦 Item found: ${item.name} (id=${item.id}, cloudId=${item.cloudId})');
+      print('   Current stock: ${item.stock}, Requested: ${request.quantityRequested}');
 
       if (item.stock < request.quantityRequested) {
         if (mounted) {
@@ -83,9 +86,14 @@ class _RequestsPageState extends State<RequestsPage> {
       }
 
       // 2. Reduce commissary stock
-      await db.itemsDao.updateItem(item.copyWith(
-        stock: item.stock - request.quantityRequested,
-      ));
+      final newStock = item.stock - request.quantityRequested;
+      final rowsUpdated = await db.itemsDao.updateStock(request.itemId, newStock);
+      print('📦 updateStock returned: $rowsUpdated rows updated');
+      print('📦 Reduced commissary stock for item ${item.name}: ${item.stock} → $newStock');
+
+      // Verify the update worked
+      final updatedItem = await db.itemsDao.getItemById(request.itemId);
+      print('📦 Verification - Item after update: stock=${updatedItem?.stock}, needsSync=${updatedItem?.needsSync}');
 
       // 3. Add to branch stock
       // Find existing stock record for branch
@@ -121,6 +129,15 @@ class _RequestsPageState extends State<RequestsPage> {
         reviewedBy: currentUserId!,
         commissaryNotes: 'Auto-approved by commissary app',
       );
+
+      // 5. Auto-sync to push changes to cloud
+      try {
+        print('🔄 Auto-syncing after approval...');
+        await syncService.performFullSync();
+        print('✅ Approval synced to cloud');
+      } catch (syncError) {
+        print('⚠️ Sync failed (will retry later): $syncError');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -188,6 +205,15 @@ class _RequestsPageState extends State<RequestsPage> {
         reviewedBy: currentUserId!,
         reason: reasonController.text.trim(),
       );
+
+      // Auto-sync to push rejection to cloud
+      try {
+        print('🔄 Auto-syncing after rejection...');
+        await syncService.performFullSync();
+        print('✅ Rejection synced to cloud');
+      } catch (syncError) {
+        print('⚠️ Sync failed (will retry later): $syncError');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -57,14 +57,25 @@ class InventoryManagementPageState extends State<InventoryManagementPage> {
       builder: (context) => IngredientFormDialog(
         commissaryId: widget.commissaryId,
         onSave: (companion) async {
-          await database.ingredientsDao.createIngredient(companion);
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Ingredient added successfully'),
-                backgroundColor: Colors.green,
-              ),
-            );
+          try {
+            await database.ingredientsDao.createIngredient(companion);
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Ingredient added successfully'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(e.toString().replaceFirst('Exception: ', '')),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
           }
         },
       ),
@@ -84,27 +95,38 @@ class InventoryManagementPageState extends State<InventoryManagementPage> {
         availableIngredients: ingredients,
         categories: categories,
         onSave: (itemCompanion, recipeIngredients) async {
-          final itemId = await database.itemsDao.createItem(itemCompanion);
+          try {
+            final itemId = await database.itemsDao.createItem(itemCompanion);
 
-          const uuid = Uuid();
-          for (final ingredient in recipeIngredients) {
-            await database.recipeIngredientsDao.createRecipeIngredient(
-              RecipeIngredientsCompanion(
-                cloudId: Value(uuid.v4()),
-                itemId: Value(itemId),
-                ingredientId: Value(ingredient.ingredientId),
-                quantity: Value(ingredient.quantity),
-              ),
-            );
-          }
+            const uuid = Uuid();
+            for (final ingredient in recipeIngredients) {
+              await database.recipeIngredientsDao.createRecipeIngredient(
+                RecipeIngredientsCompanion(
+                  cloudId: Value(uuid.v4()),
+                  itemId: Value(itemId),
+                  ingredientId: Value(ingredient.ingredientId),
+                  quantity: Value(ingredient.quantity),
+                ),
+              );
+            }
 
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('Product added successfully'),
-                backgroundColor: Colors.green,
-              ),
-            );
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Product added successfully'),
+                  backgroundColor: Colors.green,
+                ),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(e.toString().replaceFirst('Exception: ', '')),
+                  backgroundColor: Colors.red,
+                ),
+              );
+            }
           }
         },
       ),

@@ -319,6 +319,8 @@ class SupabaseSyncService {
           continue;
         }
 
+        print('      📦 Pushing item: ${item.name} | stock=${item.stock} | needsSync=${item.needsSync}');
+
         await _syncClient.from('items').upsert({
           'cloud_id': item.cloudId,
           'name': item.name,
@@ -333,10 +335,15 @@ class SupabaseSyncService {
           'category_id': item.categoryId,
           'master_item_id': item.masterItemId,
           'is_active': item.isActive,
+          'is_deleted': false,
           'created_at': item.createdAt.toIso8601String(),
           'updated_at': item.updatedAt.toIso8601String(),
-        });
+          'last_updated': item.updatedAt.toIso8601String(),
+          'needs_sync': false,
+        }, onConflict: 'cloud_id');
+        
         await db.itemsDao.markAsSynced(item.id, DateTime.now());
+        print('      ✅ Pushed item: ${item.name} | stock=${item.stock}');
       } catch (e) {
         print('      ❌ Failed to push item ${item.name}: $e');
       }

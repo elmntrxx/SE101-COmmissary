@@ -153,9 +153,38 @@ class IngredientsDao extends DatabaseAccessor<AppDatabase>
   // MUTATIONS
   // ============================================================================
 
+  /// Get ingredient by name (case-insensitive)
+  Future<Ingredient?> getIngredientByName(
+    String name, {
+    int? commissaryId,
+  }) async {
+    final query = select(ingredients)
+      ..where((i) => i.name.lower().equals(name.toLowerCase()) & i.isActive.equals(true));
+
+    if (commissaryId != null) {
+      query.where((i) => i.commissaryId.equals(commissaryId));
+    }
+
+    return query.getSingleOrNull();
+  }
+
   /// Create a new ingredient
-  Future<int> createIngredient(IngredientsCompanion ingredient) =>
-      into(ingredients).insert(ingredient);
+  /// Throws an exception if an ingredient with the same name already exists
+  Future<int> createIngredient(IngredientsCompanion ingredient) async {
+    // Check for duplicate ingredient name
+    final name = ingredient.name.value;
+    final commissaryId = ingredient.commissaryId.value;
+    
+    final existingIngredient = await getIngredientByName(
+      name,
+      commissaryId: commissaryId,
+    );
+    if (existingIngredient != null) {
+      throw Exception('An ingredient with the name "$name" already exists');
+    }
+    
+    return into(ingredients).insert(ingredient);
+  }
 
   /// Update an ingredient
   Future<bool> updateIngredient(Ingredient ingredient) =>

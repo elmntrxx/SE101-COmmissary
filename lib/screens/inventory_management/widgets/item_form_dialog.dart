@@ -825,6 +825,9 @@ class _AddIngredientToRecipeDialogState
                 suffixText: _selectedIngredient?.unit ?? '',
                 border: const OutlineInputBorder(),
               ),
+              onChanged: (value) {
+                setState(() {});
+              },
             ),
             if (_selectedIngredient != null &&
                 _quantityController.text.isNotEmpty) ...[
