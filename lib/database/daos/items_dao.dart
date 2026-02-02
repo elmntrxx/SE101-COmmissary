@@ -326,8 +326,38 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
   // MUTATIONS
   // ============================================================================
 
+  /// Get item by name (case-insensitive)
+  Future<Item?> getItemByName(
+    String name, {
+    int? organizationId,
+  }) async {
+    final query = select(items)
+      ..where((i) => i.name.lower().equals(name.toLowerCase()) & i.isActive.equals(true));
+
+    if (organizationId != null) {
+      query.where((i) => i.organizationId.equals(organizationId));
+    }
+
+    return query.getSingleOrNull();
+  }
+
   /// Create a new item
-  Future<int> createItem(ItemsCompanion item) => into(items).insert(item);
+  /// Throws an exception if an item with the same name already exists in the organization
+  Future<int> createItem(ItemsCompanion item) async {
+    // Check for duplicate item name within the organization
+    final name = item.name.value;
+    final organizationId = item.organizationId.value;
+    
+    final existingItem = await getItemByName(
+      name,
+      organizationId: organizationId,
+    );
+    if (existingItem != null) {
+      throw Exception('A product with the name "$name" already exists');
+    }
+    
+    return into(items).insert(item);
+  }
 
   /// Update an item
   Future<bool> updateItem(Item item) => update(items).replace(item);
