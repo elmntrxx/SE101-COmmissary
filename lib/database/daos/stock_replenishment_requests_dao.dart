@@ -25,65 +25,86 @@ class StockReplenishmentRequestsDao extends DatabaseAccessor<AppDatabase>
 
   /// Get all requests for commissary (to review)
   Future<List<StockReplenishmentRequest>> getRequestsForCommissary(
-      int commissaryId) {
+    int commissaryId,
+  ) {
     return (select(stockReplenishmentRequests)
           ..where((r) => r.commissaryId.equals(commissaryId))
           ..where((r) => r.isDeleted.equals(false))
           ..orderBy([
-            (r) => OrderingTerm(expression: r.createdAt, mode: OrderingMode.desc)
+            (r) =>
+                OrderingTerm(expression: r.createdAt, mode: OrderingMode.desc),
           ]))
         .get();
   }
 
   /// Get pending requests for commissary
   Future<List<StockReplenishmentRequest>> getPendingRequestsForCommissary(
-      int commissaryId) {
+    int commissaryId,
+  ) {
     return (select(stockReplenishmentRequests)
           ..where((r) => r.commissaryId.equals(commissaryId))
           ..where((r) => r.status.equals('pending'))
           ..where((r) => r.isDeleted.equals(false))
           ..orderBy([
-            (r) => OrderingTerm(expression: r.createdAt, mode: OrderingMode.desc)
+            (r) =>
+                OrderingTerm(expression: r.createdAt, mode: OrderingMode.desc),
           ]))
         .get();
   }
 
   /// Watch pending requests for commissary (real-time updates)
   Stream<List<StockReplenishmentRequest>> watchPendingRequests(
-      int commissaryId) {
+    int commissaryId,
+  ) {
     return (select(stockReplenishmentRequests)
           ..where((r) => r.commissaryId.equals(commissaryId))
           ..where((r) => r.status.equals('pending'))
           ..where((r) => r.isDeleted.equals(false))
           ..orderBy([
-            (r) => OrderingTerm(expression: r.createdAt, mode: OrderingMode.desc)
+            (r) =>
+                OrderingTerm(expression: r.createdAt, mode: OrderingMode.desc),
+          ]))
+        .watch();
+  }
+
+  /// Watch all requests for commissary (real-time updates)
+  Stream<List<StockReplenishmentRequest>> watchAllRequests(int commissaryId) {
+    return (select(stockReplenishmentRequests)
+          ..where((r) => r.commissaryId.equals(commissaryId))
+          ..where((r) => r.isDeleted.equals(false))
+          ..orderBy([
+            (r) =>
+                OrderingTerm(expression: r.createdAt, mode: OrderingMode.desc),
           ]))
         .watch();
   }
 
   /// Get requests by franchisee
   Future<List<StockReplenishmentRequest>> getRequestsByFranchisee(
-      int franchiseeId) {
+    int franchiseeId,
+  ) {
     return (select(stockReplenishmentRequests)
           ..where((r) => r.franchiseeId.equals(franchiseeId))
           ..where((r) => r.isDeleted.equals(false))
           ..orderBy([
-            (r) => OrderingTerm(expression: r.createdAt, mode: OrderingMode.desc)
+            (r) =>
+                OrderingTerm(expression: r.createdAt, mode: OrderingMode.desc),
           ]))
         .get();
   }
 
   /// Get request by ID
   Future<StockReplenishmentRequest?> getRequestById(int id) {
-    return (select(stockReplenishmentRequests)..where((r) => r.id.equals(id)))
-        .getSingleOrNull();
+    return (select(
+      stockReplenishmentRequests,
+    )..where((r) => r.id.equals(id))).getSingleOrNull();
   }
 
   /// Get request by cloud ID
   Future<StockReplenishmentRequest?> getRequestByCloudId(String cloudId) {
-    return (select(stockReplenishmentRequests)
-          ..where((r) => r.cloudId.equals(cloudId)))
-        .getSingleOrNull();
+    return (select(
+      stockReplenishmentRequests,
+    )..where((r) => r.cloudId.equals(cloudId))).getSingleOrNull();
   }
 
   // ============================================================================
@@ -105,19 +126,20 @@ class StockReplenishmentRequestsDao extends DatabaseAccessor<AppDatabase>
     String? commissaryNotes,
     DateTime? deliveryDate,
   }) async {
-    final rows = await (update(stockReplenishmentRequests)
-          ..where((r) => r.id.equals(requestId)))
-        .write(
-      StockReplenishmentRequestsCompanion(
-        status: const Value('approved'),
-        reviewedBy: Value(reviewedBy),
-        reviewedAt: Value(DateTime.now()),
-        commissaryNotes: Value(commissaryNotes),
-        deliveryDate: Value(deliveryDate),
-        lastUpdated: Value(DateTime.now()),
-        isSynced: const Value(false),
-      ),
-    );
+    final rows =
+        await (update(
+          stockReplenishmentRequests,
+        )..where((r) => r.id.equals(requestId))).write(
+          StockReplenishmentRequestsCompanion(
+            status: const Value('approved'),
+            reviewedBy: Value(reviewedBy),
+            reviewedAt: Value(DateTime.now()),
+            commissaryNotes: Value(commissaryNotes),
+            deliveryDate: Value(deliveryDate),
+            lastUpdated: Value(DateTime.now()),
+            isSynced: const Value(false),
+          ),
+        );
     return rows > 0;
   }
 
@@ -127,33 +149,35 @@ class StockReplenishmentRequestsDao extends DatabaseAccessor<AppDatabase>
     required int reviewedBy,
     required String reason,
   }) async {
-    final rows = await (update(stockReplenishmentRequests)
-          ..where((r) => r.id.equals(requestId)))
-        .write(
-      StockReplenishmentRequestsCompanion(
-        status: const Value('rejected'),
-        reviewedBy: Value(reviewedBy),
-        reviewedAt: Value(DateTime.now()),
-        commissaryNotes: Value(reason),
-        lastUpdated: Value(DateTime.now()),
-        isSynced: const Value(false),
-      ),
-    );
+    final rows =
+        await (update(
+          stockReplenishmentRequests,
+        )..where((r) => r.id.equals(requestId))).write(
+          StockReplenishmentRequestsCompanion(
+            status: const Value('rejected'),
+            reviewedBy: Value(reviewedBy),
+            reviewedAt: Value(DateTime.now()),
+            commissaryNotes: Value(reason),
+            lastUpdated: Value(DateTime.now()),
+            isSynced: const Value(false),
+          ),
+        );
     return rows > 0;
   }
 
   /// Mark as delivered
   Future<bool> markAsDelivered(int requestId) async {
-    final rows = await (update(stockReplenishmentRequests)
-          ..where((r) => r.id.equals(requestId)))
-        .write(
-      StockReplenishmentRequestsCompanion(
-        status: const Value('delivered'),
-        deliveryDate: Value(DateTime.now()),
-        lastUpdated: Value(DateTime.now()),
-        isSynced: const Value(false),
-      ),
-    );
+    final rows =
+        await (update(
+          stockReplenishmentRequests,
+        )..where((r) => r.id.equals(requestId))).write(
+          StockReplenishmentRequestsCompanion(
+            status: const Value('delivered'),
+            deliveryDate: Value(DateTime.now()),
+            lastUpdated: Value(DateTime.now()),
+            isSynced: const Value(false),
+          ),
+        );
     return rows > 0;
   }
 
@@ -163,31 +187,32 @@ class StockReplenishmentRequestsDao extends DatabaseAccessor<AppDatabase>
 
   /// Get unsynced requests
   Future<List<StockReplenishmentRequest>> getUnsyncedRequests() {
-    return (select(stockReplenishmentRequests)
-          ..where((r) => r.isSynced.equals(false)))
-        .get();
+    return (select(
+      stockReplenishmentRequests,
+    )..where((r) => r.isSynced.equals(false))).get();
   }
 
   /// Mark as synced
   Future<bool> markAsSynced(int id, String? cloudId) async {
-    final rows = await (update(stockReplenishmentRequests)
-          ..where((r) => r.id.equals(id)))
-        .write(
-      StockReplenishmentRequestsCompanion(
-        isSynced: const Value(true),
-        cloudId: cloudId != null ? Value(cloudId) : const Value.absent(),
-      ),
-    );
+    final rows =
+        await (update(
+          stockReplenishmentRequests,
+        )..where((r) => r.id.equals(id))).write(
+          StockReplenishmentRequestsCompanion(
+            isSynced: const Value(true),
+            cloudId: cloudId != null ? Value(cloudId) : const Value.absent(),
+          ),
+        );
     return rows > 0;
   }
 
   /// Upsert from cloud
   Future<void> upsertFromCloud(Map<String, dynamic> data) async {
     final cloudId = data['cloud_id'] as String;
-    
+
     // Check if exists
     final existing = await getRequestByCloudId(cloudId);
-    
+
     final companion = StockReplenishmentRequestsCompanion(
       franchiseeId: Value(data['franchisee_id'] as int),
       commissaryId: Value(data['commissary_id'] as int),
@@ -230,9 +255,9 @@ class StockReplenishmentRequestsDao extends DatabaseAccessor<AppDatabase>
         // by stale cloud data, especially since we do Push-First now.
         return;
       }
-      await (update(stockReplenishmentRequests)
-            ..where((r) => r.id.equals(existing.id)))
-          .write(companion);
+      await (update(
+        stockReplenishmentRequests,
+      )..where((r) => r.id.equals(existing.id))).write(companion);
     } else {
       await into(stockReplenishmentRequests).insert(companion);
     }
