@@ -1,9 +1,12 @@
 // lib/screens/requests/requests_page.dart
+import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../app_globals.dart';
 import '../../database/app_database.dart';
+import '../../services/realtime_stock_request_service.dart';
+import '../../widgets/realtime_status_indicator.dart';
 
 class RequestsPage extends StatefulWidget {
   const RequestsPage({super.key});
@@ -12,14 +15,17 @@ class RequestsPage extends StatefulWidget {
   State<RequestsPage> createState() => _RequestsPageState();
 }
 
-class _RequestsPageState extends State<RequestsPage> {
+class _RequestsPageState extends State<RequestsPage> with WidgetsBindingObserver {
   late AppDatabase db;
   int? currentUserId;
   int? commissaryId;
+  String? _commissaryCloudId;
+  StreamSubscription<StockRequestEvent>? _eventSubscription;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     db = database;
     _loadContext();
   }
@@ -30,10 +36,66 @@ class _RequestsPageState extends State<RequestsPage> {
       if (mounted) {
         setState(() {
           currentUserId = user.id;
-          commissaryId = user.organizationId; // Assuming user is logged into commissary org
+          commissaryId = user.organizationId;
         });
       }
+      
+      // Initialize realtime after we have commissaryId
+      await _initializeRealtime();
     }
+  }
+
+  Future<void> _initializeRealtime() async {
+    if (commissaryId == null) return;
+    
+    try {
+      final org = await db.organizationsDao.getOrganizationById(commissaryId!);
+      if (org?.cloudId != null) {
+        _commissaryCloudId = org!.cloudId;
+        
+        // Attach to realtime service
+        await realtimeStockRequestService.attach(_commissaryCloudId!);
+        
+        // Listen for new request events
+        _eventSubscription = realtimeStockRequestService.eventStream.listen((event) {
+          print('📬 New stock request received: ${event.cloudId}');
+          // The StreamBuilder will automatically update, but we can trigger a refresh
+          if (mounted) {
+            setState(() {}); // Trigger rebuild to update any counters/badges
+          }
+        });
+      }
+    } catch (e) {
+      print('⚠️ Failed to initialize realtime: $e');
+    }
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    print('📱 App lifecycle state changed: $state');
+    switch (state) {
+      case AppLifecycleState.paused:
+        // Only pause when app truly goes to background
+        realtimeStockRequestService.pause();
+        break;
+      case AppLifecycleState.resumed:
+        realtimeStockRequestService.resume();
+        break;
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.detached:
+      case AppLifecycleState.hidden:
+        // Don't pause on inactive - this triggers too easily
+        break;
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _eventSubscription?.cancel();
+    realtimeStockRequestService.detach();
+    super.dispose();
   }
 
   Future<void> _approveRequest(StockReplenishmentRequest request) async {
@@ -246,11 +308,22 @@ class _RequestsPageState extends State<RequestsPage> {
       appBar: AppBar(
         title: const Text('Stock Replenishment Requests'),
         actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: RealtimeStatusIndicator(
+              service: realtimeStockRequestService,
+            ),
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
-            onPressed: () {
-              // Trigger sync if needed
-              setState(() {}); 
+            onPressed: () async {
+              // Trigger sync and refresh
+              try {
+                await syncService.performFullSync();
+              } catch (e) {
+                print('Sync error: $e');
+              }
+              if (mounted) setState(() {}); 
             },
           ),
         ],

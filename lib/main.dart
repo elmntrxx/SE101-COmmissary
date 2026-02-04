@@ -10,6 +10,7 @@ import 'config/supabase_config.dart';
 import 'database/app_database.dart';
 import 'services/supabase_sync_service.dart';
 import 'services/supabase_auth_service.dart';
+import 'services/realtime_stock_request_service.dart';
 import 'app_globals.dart';
 import 'app.dart';
 
@@ -79,11 +80,26 @@ void main() async {
     db: db,
   );
 
+  // Initialize realtime stock request service
+  print('📡 Initializing realtime stock request service...');
+  final realtimeStockRequestService = RealtimeStockRequestService(
+    supabase: supabaseInitialized
+        ? Supabase.instance.client
+        : SupabaseClient('', ''),
+    db: db,
+  );
+
+  // Wire up sync callback for realtime service
+  realtimeStockRequestService.syncCallback = () async {
+    await syncService.performFullSync();
+  };
+
   // Initialize AppGlobals
   AppGlobals.instance.initialize(
     database: db,
     syncService: syncService,
     authService: authService,
+    realtimeStockRequestService: realtimeStockRequestService,
   );
   print('✅ AppGlobals initialized');
 
