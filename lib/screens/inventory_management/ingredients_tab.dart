@@ -1,5 +1,6 @@
 // lib/screens/inventory_management/ingredients_tab.dart
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../database/app_database.dart';
 import '../../database/daos/ingredients_dao.dart';
 import '../../app_globals.dart';
@@ -314,6 +315,7 @@ class _IngredientsTabState extends State<IngredientsTab> {
           );
         }
 
+        final numberFormat = NumberFormat('#,##0.##');
         return buildUniversalTable(
           headers: [
             'Name',
@@ -328,10 +330,10 @@ class _IngredientsTabState extends State<IngredientsTab> {
             final isLowStock = ingredient.stock <= ingredient.criticalLevel;
             return [
               Text(ingredient.name),
-              Text(ingredient.stock.toStringAsFixed(2)),
+              Text(numberFormat.format(ingredient.stock)),
               Text(ingredient.unit),
-              Text('₱${ingredient.costPerUnit.toStringAsFixed(2)}'),
-              Text(ingredient.criticalLevel.toStringAsFixed(0)),
+              Text('₱${numberFormat.format(ingredient.costPerUnit)}'),
+              Text(numberFormat.format(ingredient.criticalLevel)),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
