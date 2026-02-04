@@ -11,11 +11,17 @@ import 'widgets/ingredient_form_dialog.dart';
 class IngredientsTab extends StatefulWidget {
   final int commissaryId;
   final ValueChanged<bool>? onItemsChanged;
+  final String searchQuery;
+  final IngredientSortOrder sortOrder;
+  final bool showLowStockOnly;
 
   const IngredientsTab({
     super.key,
     required this.commissaryId,
     this.onItemsChanged,
+    this.searchQuery = '',
+    this.sortOrder = IngredientSortOrder.nameAsc,
+    this.showLowStockOnly = false,
   });
 
   @override
@@ -23,14 +29,8 @@ class IngredientsTab extends StatefulWidget {
 }
 
 class _IngredientsTabState extends State<IngredientsTab> {
-  final TextEditingController _searchController = TextEditingController();
-  IngredientSortOrder _sortOrder = IngredientSortOrder.nameAsc;
-  String _searchQuery = '';
-  bool _showLowStockOnly = false;
-
   @override
   void dispose() {
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -186,7 +186,9 @@ class _IngredientsTabState extends State<IngredientsTab> {
               const SizedBox(height: 16),
               TextField(
                 controller: controller,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
                 decoration: InputDecoration(
                   labelText: 'Quantity (${ingredient.unit})',
                   prefixIcon: Icon(isAdding ? Icons.add : Icons.remove),
@@ -264,20 +266,26 @@ class _IngredientsTabState extends State<IngredientsTab> {
         });
 
         // Apply search filter
-        if (_searchQuery.isNotEmpty) {
+        if (widget.searchQuery.isNotEmpty) {
           ingredients = ingredients
-              .where((i) => i.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+              .where(
+                (i) => i.name.toLowerCase().contains(
+                  widget.searchQuery.toLowerCase(),
+                ),
+              )
               .toList();
         }
 
         // Apply low stock filter
-        if (_showLowStockOnly) {
-          ingredients = ingredients.where((i) => i.stock <= i.criticalLevel).toList();
+        if (widget.showLowStockOnly) {
+          ingredients = ingredients
+              .where((i) => i.stock <= i.criticalLevel)
+              .toList();
         }
 
         // Apply sorting
         ingredients.sort((a, b) {
-          switch (_sortOrder) {
+          switch (widget.sortOrder) {
             case IngredientSortOrder.nameAsc:
               return a.name.compareTo(b.name);
             case IngredientSortOrder.nameDesc:
@@ -297,7 +305,9 @@ class _IngredientsTabState extends State<IngredientsTab> {
           }
         });
 
-        if (ingredients.isEmpty && _searchQuery.isEmpty && !_showLowStockOnly) {
+        if (ingredients.isEmpty &&
+            widget.searchQuery.isEmpty &&
+            !widget.showLowStockOnly) {
           return emptyTables(
             message: 'You can manage your ingredients here.',
             onAddPressed: _showAddIngredientDialog,
@@ -337,7 +347,9 @@ class _IngredientsTabState extends State<IngredientsTab> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isLowStock ? Colors.orange.shade100 : Colors.green.shade100,
+                  color: isLowStock
+                      ? Colors.orange.shade100
+                      : Colors.green.shade100,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' show Value;
 import 'package:uuid/uuid.dart';
 import '../../database/app_database.dart';
+import '../../database/daos/ingredients_dao.dart';
+import '../../database/daos/items_dao.dart';
 import '../../app_globals.dart';
 import '../../utils/design_constants.dart';
 import 'inventory_management_page_desktop.dart';
@@ -27,13 +29,71 @@ class InventoryManagementPage extends StatefulWidget {
   });
 
   @override
-  State<InventoryManagementPage> createState() => InventoryManagementPageState();
+  State<InventoryManagementPage> createState() =>
+      InventoryManagementPageState();
 }
 
 class InventoryManagementPageState extends State<InventoryManagementPage> {
   int selectedTab = 0; // 0 = Ingredients, 1 = Products
   bool hasIngredients = false;
   bool hasProducts = false;
+
+  // Search functionality
+  final TextEditingController searchController = TextEditingController();
+  String searchQuery = '';
+
+  // Sort & Filter state for Ingredients tab
+  IngredientSortOrder ingredientSortOrder = IngredientSortOrder.nameAsc;
+  bool showLowStockIngredientsOnly = false;
+
+  // Sort & Filter state for Products tab
+  ItemSortOrder productSortOrder = ItemSortOrder.nameAsc;
+  bool showLowStockProductsOnly = false;
+  int? selectedCategoryId;
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
+  }
+
+  void onSearchChanged(String query) {
+    setState(() {
+      searchQuery = query;
+    });
+  }
+
+  // Sort/Filter methods for Ingredients
+  void setIngredientSortOrder(IngredientSortOrder order) {
+    setState(() {
+      ingredientSortOrder = order;
+    });
+  }
+
+  void toggleLowStockIngredients(bool value) {
+    setState(() {
+      showLowStockIngredientsOnly = value;
+    });
+  }
+
+  // Sort/Filter methods for Products
+  void setProductSortOrder(ItemSortOrder order) {
+    setState(() {
+      productSortOrder = order;
+    });
+  }
+
+  void toggleLowStockProducts(bool value) {
+    setState(() {
+      showLowStockProductsOnly = value;
+    });
+  }
+
+  void setSelectedCategory(int? categoryId) {
+    setState(() {
+      selectedCategoryId = categoryId;
+    });
+  }
 
   void setSelectedTab(int index) {
     setState(() => selectedTab = index);
@@ -150,9 +210,7 @@ class InventoryManagementPageState extends State<InventoryManagementPage> {
           children: [
             Icon(Icons.help_outline, color: Colors.blue),
             SizedBox(width: 12),
-            Expanded(
-              child: Text('Inventory Management Help'),
-            ),
+            Expanded(child: Text('Inventory Management Help')),
           ],
         ),
         content: const SingleChildScrollView(
@@ -234,29 +292,25 @@ class _HelpSection extends StatelessWidget {
             const SizedBox(width: 8),
             Text(
               title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
             ),
           ],
         ),
         const SizedBox(height: 8),
-        ...items.map((item) => Padding(
-              padding: const EdgeInsets.only(left: 28, bottom: 4),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('• ', style: TextStyle(color: Colors.grey)),
-                  Expanded(
-                    child: Text(
-                      item,
-                      style: const TextStyle(fontSize: 14),
-                    ),
-                  ),
-                ],
-              ),
-            )),
+        ...items.map(
+          (item) => Padding(
+            padding: const EdgeInsets.only(left: 28, bottom: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('• ', style: TextStyle(color: Colors.grey)),
+                Expanded(
+                  child: Text(item, style: const TextStyle(fontSize: 14)),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }

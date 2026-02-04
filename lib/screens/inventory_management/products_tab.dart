@@ -13,11 +13,19 @@ import 'widgets/item_form_dialog.dart';
 class ProductsTab extends StatefulWidget {
   final int organizationId;
   final ValueChanged<bool>? onItemsChanged;
+  final String searchQuery;
+  final ItemSortOrder sortOrder;
+  final bool showLowStockOnly;
+  final int? selectedCategoryId;
 
   const ProductsTab({
     super.key,
     required this.organizationId,
     this.onItemsChanged,
+    this.searchQuery = '',
+    this.sortOrder = ItemSortOrder.nameAsc,
+    this.showLowStockOnly = false,
+    this.selectedCategoryId,
   });
 
   @override
@@ -25,15 +33,8 @@ class ProductsTab extends StatefulWidget {
 }
 
 class _ProductsTabState extends State<ProductsTab> {
-  final TextEditingController _searchController = TextEditingController();
-  ItemSortOrder _sortOrder = ItemSortOrder.nameAsc;
-  String _searchQuery = '';
-  bool _showLowStockOnly = false;
-  int? _selectedCategoryId;
-
   @override
   void dispose() {
-    _searchController.dispose();
     super.dispose();
   }
 
@@ -84,7 +85,8 @@ class _ProductsTabState extends State<ProductsTab> {
     // Fetch ingredients and categories
     final ingredients = await database.ingredientsDao.getAllIngredients();
     final categories = await database.categoriesDao.getAllCategories();
-    final existingRecipe = await database.recipeIngredientsDao.getRecipeIngredients(item.id);
+    final existingRecipe = await database.recipeIngredientsDao
+        .getRecipeIngredients(item.id);
 
     if (!mounted) return;
 
@@ -208,7 +210,9 @@ class _ProductsTabState extends State<ProductsTab> {
                     prefixIcon: const Icon(Icons.lock),
                     suffixIcon: IconButton(
                       icon: Icon(
-                        isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+                        isPasswordVisible
+                            ? Icons.visibility_off
+                            : Icons.visibility,
                       ),
                       onPressed: () {
                         setDialogState(() {
@@ -218,7 +222,8 @@ class _ProductsTabState extends State<ProductsTab> {
                     ),
                     border: const OutlineInputBorder(),
                   ),
-                  onSubmitted: (_) => _performDelete(item, passwordController.text),
+                  onSubmitted: (_) =>
+                      _performDelete(item, passwordController.text),
                 ),
               ],
             ),
@@ -442,7 +447,8 @@ class _ProductsTabState extends State<ProductsTab> {
   }
 
   void _showRecipeDetailsDialog(Item item) async {
-    final recipeDetails = await database.recipeIngredientsDao.getRecipeWithDetails(item.id);
+    final recipeDetails = await database.recipeIngredientsDao
+        .getRecipeWithDetails(item.id);
 
     if (!mounted) return;
 
@@ -494,54 +500,64 @@ class _ProductsTabState extends State<ProductsTab> {
                                   flex: 3,
                                   child: Text(
                                     'Ingredient',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                                 Expanded(
                                   flex: 2,
                                   child: Text(
                                     'Quantity',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                   ),
                                 ),
                                 Expanded(
                                   flex: 2,
                                   child: Text(
                                     'Cost',
-                                    style: TextStyle(fontWeight: FontWeight.bold),
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
                                     textAlign: TextAlign.right,
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                          ...recipeDetails.map((detail) => Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  border: Border(
-                                    top: BorderSide(color: Colors.grey[200]!),
+                          ...recipeDetails.map(
+                            (detail) => Container(
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                border: Border(
+                                  top: BorderSide(color: Colors.grey[200]!),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Expanded(
+                                    flex: 3,
+                                    child: Text(detail.ingredientName),
                                   ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      flex: 3,
-                                      child: Text(detail.ingredientName),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      '${detail.quantity} ${detail.unit}',
                                     ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text('${detail.quantity} ${detail.unit}'),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Text(
+                                      '₱${detail.totalCost.toStringAsFixed(2)}',
+                                      textAlign: TextAlign.right,
                                     ),
-                                    Expanded(
-                                      flex: 2,
-                                      child: Text(
-                                        '₱${detail.totalCost.toStringAsFixed(2)}',
-                                        textAlign: TextAlign.right,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              )),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -561,7 +577,9 @@ class _ProductsTabState extends State<ProductsTab> {
                               const Text('Total Cost:'),
                               Text(
                                 '₱${item.cost.toStringAsFixed(2)}',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ],
                           ),
@@ -572,7 +590,9 @@ class _ProductsTabState extends State<ProductsTab> {
                               const Text('Selling Price:'),
                               Text(
                                 '₱${item.price.toStringAsFixed(2)}',
-                                style: const TextStyle(fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ],
                           ),
@@ -612,9 +632,7 @@ class _ProductsTabState extends State<ProductsTab> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<List<Item>>(
-      stream: database.itemsDao.watchItemsByOrganization(
-        widget.organizationId,
-      ),
+      stream: database.itemsDao.watchItemsByOrganization(widget.organizationId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -643,25 +661,31 @@ class _ProductsTabState extends State<ProductsTab> {
         });
 
         // Apply search filter
-        if (_searchQuery.isNotEmpty) {
+        if (widget.searchQuery.isNotEmpty) {
           products = products
-              .where((p) => p.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+              .where(
+                (p) => p.name.toLowerCase().contains(
+                  widget.searchQuery.toLowerCase(),
+                ),
+              )
               .toList();
         }
 
         // Apply category filter
-        if (_selectedCategoryId != null) {
-          products = products.where((p) => p.categoryId == _selectedCategoryId).toList();
+        if (widget.selectedCategoryId != null) {
+          products = products
+              .where((p) => p.categoryId == widget.selectedCategoryId)
+              .toList();
         }
 
         // Apply low stock filter
-        if (_showLowStockOnly) {
+        if (widget.showLowStockOnly) {
           products = products.where((p) => p.stock <= p.criticalLevel).toList();
         }
 
         // Apply sorting
         products.sort((a, b) {
-          switch (_sortOrder) {
+          switch (widget.sortOrder) {
             case ItemSortOrder.nameAsc:
               return a.name.compareTo(b.name);
             case ItemSortOrder.nameDesc:
@@ -685,7 +709,10 @@ class _ProductsTabState extends State<ProductsTab> {
           }
         });
 
-        if (products.isEmpty && _searchQuery.isEmpty && !_showLowStockOnly && _selectedCategoryId == null) {
+        if (products.isEmpty &&
+            widget.searchQuery.isEmpty &&
+            !widget.showLowStockOnly &&
+            widget.selectedCategoryId == null) {
           return emptyTables(
             message: 'You can manage your products here.',
             onAddPressed: _showAddProductDialog,
@@ -705,19 +732,13 @@ class _ProductsTabState extends State<ProductsTab> {
 
         final numberFormat = NumberFormat('#,##0.##');
         return buildUniversalTable(
-          headers: [
-            'Name',
-            'Stock',
-            'Price',
-            'Cost',
-            'Margin',
-            'Status',
-            '',
-          ],
+          headers: ['Name', 'Stock', 'Price', 'Cost', 'Margin', 'Status', ''],
           rows: products.map((product) {
             final isLowStock = product.stock <= product.criticalLevel;
             final profit = product.price - product.cost;
-            final profitMargin = product.price > 0 ? (profit / product.price * 100) : 0;
+            final profitMargin = product.price > 0
+                ? (profit / product.price * 100)
+                : 0;
             return [
               Text(product.name),
               Text(numberFormat.format(product.stock)),
@@ -726,7 +747,9 @@ class _ProductsTabState extends State<ProductsTab> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: profit >= 0 ? Colors.green.shade50 : Colors.red.shade50,
+                  color: profit >= 0
+                      ? Colors.green.shade50
+                      : Colors.red.shade50,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -740,7 +763,9 @@ class _ProductsTabState extends State<ProductsTab> {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: isLowStock ? Colors.orange.shade100 : Colors.green.shade100,
+                  color: isLowStock
+                      ? Colors.orange.shade100
+                      : Colors.green.shade100,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
