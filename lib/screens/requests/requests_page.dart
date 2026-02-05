@@ -27,6 +27,12 @@ class _RequestsPageState extends State<RequestsPage> {
     _loadContext();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadContext() async {
     debugPrint('RequestsPage: loading context...');
     final user = AppGlobals.instance.authService.currentUser;
@@ -78,7 +84,8 @@ class _RequestsPageState extends State<RequestsPage> {
       builder: (context) => AlertDialog(
         title: const Text('Approve Request'),
         content: Text(
-            'Approve request for ${request.quantityRequested} units?\n\nThis will deduct from commissary stock and add to branch stock immediately.'),
+          'Approve request for ${request.quantityRequested} units?\n\nThis will deduct from commissary stock and add to branch stock immediately.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -99,17 +106,25 @@ class _RequestsPageState extends State<RequestsPage> {
       // 1. Check commissary stock
       final item = await db.itemsDao.getItemById(request.itemId);
       if (item == null) {
-        throw Exception('Item not found in commissary (itemId: ${request.itemId})');
+        throw Exception(
+          'Item not found in commissary (itemId: ${request.itemId})',
+        );
       }
 
-      print('📦 Item found: ${item.name} (id=${item.id}, cloudId=${item.cloudId})');
-      print('   Current stock: ${item.stock}, Requested: ${request.quantityRequested}');
+      print(
+        '📦 Item found: ${item.name} (id=${item.id}, cloudId=${item.cloudId})',
+      );
+      print(
+        '   Current stock: ${item.stock}, Requested: ${request.quantityRequested}',
+      );
 
       if (item.stock < request.quantityRequested) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Insufficient stock! Have: ${item.stock}, Requested: ${request.quantityRequested}'),
+              content: Text(
+                'Insufficient stock! Have: ${item.stock}, Requested: ${request.quantityRequested}',
+              ),
               backgroundColor: Colors.red,
             ),
           );
@@ -119,13 +134,20 @@ class _RequestsPageState extends State<RequestsPage> {
 
       // 2. Reduce commissary stock
       final newStock = item.stock - request.quantityRequested;
-      final rowsUpdated = await db.itemsDao.updateStock(request.itemId, newStock);
+      final rowsUpdated = await db.itemsDao.updateStock(
+        request.itemId,
+        newStock,
+      );
       print('📦 updateStock returned: $rowsUpdated rows updated');
-      print('📦 Reduced commissary stock for item ${item.name}: ${item.stock} → $newStock');
+      print(
+        '📦 Reduced commissary stock for item ${item.name}: ${item.stock} → $newStock',
+      );
 
       // Verify the update worked
       final updatedItem = await db.itemsDao.getItemById(request.itemId);
-      print('📦 Verification - Item after update: stock=${updatedItem?.stock}, needsSync=${updatedItem?.needsSync}');
+      print(
+        '📦 Verification - Item after update: stock=${updatedItem?.stock}, needsSync=${updatedItem?.needsSync}',
+      );
 
       // 3. Add to branch stock
       // Find existing stock record for branch
@@ -183,10 +205,7 @@ class _RequestsPageState extends State<RequestsPage> {
       print('Error approving request: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -259,19 +278,55 @@ class _RequestsPageState extends State<RequestsPage> {
       print('Error rejecting request: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: Colors.red,
-          ),
+          SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
         );
       }
     }
   }
 
+  Widget _buildTab(String label, int index) {
+    bool active = selectedTab == index;
+    return Expanded(
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: GestureDetector(
+          onTap: () => setSelectedTab(index),
+          child: Container(
+            height: 45,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: active ? Colors.white : Colors.grey[300],
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(12),
+                topRight: Radius.circular(12),
+              ),
+              boxShadow: active
+                  ? [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.12),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : [],
+            ),
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     if (commissaryId == null) {
-      return const Center(child: CircularProgressIndicator());
+      return const Scaffold(
+        backgroundColor: Color.fromRGBO(238, 238, 238, 1),
+        body: Center(child: CircularProgressIndicator()),
+      );
     }
 
     return Scaffold(
@@ -314,117 +369,300 @@ class _RequestsPageState extends State<RequestsPage> {
           if (requests.isEmpty) {
             return const Center(
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.check_circle_outline, size: 64, color: Colors.green),
-                  SizedBox(height: 16),
-                  Text('No pending requests', style: TextStyle(fontSize: 18)),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.grey[300],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        _buildTab('Pending Requests', 0),
+                        _buildTab('Request History', 1),
+                      ],
+                    ),
+                  ),
+                  Expanded(
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(20),
+                      decoration: const BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.only(
+                          bottomLeft: Radius.circular(12),
+                          bottomRight: Radius.circular(12),
+                        ),
+                      ),
+                      child: selectedTab == 0
+                          ? _buildPendingRequestsTab()
+                          : _buildHistoryTab(),
+                    ),
+                  ),
                 ],
               ),
-            );
-          }
-
-          return ListView.builder(
-            padding: const EdgeInsets.all(16),
-            itemCount: requests.length,
-            itemBuilder: (context, index) {
-              final req = requests[index];
-              return Card(
-                elevation: 2,
-                margin: const EdgeInsets.only(bottom: 12),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: Colors.orange.shade100,
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Text(
-                              'Request #${req.id}',
-                              style: TextStyle(color: Colors.orange.shade800, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          Text(
-                            DateFormat('MMM d, h:mm a').format(req.createdAt),
-                            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                FutureBuilder<Organization?>(
-                                  future: db.organizationsDao.getOrganizationById(req.franchiseeId),
-                                  builder: (context, orgSnapshot) {
-                                    return Text(
-                                      orgSnapshot.data?.name ?? 'Unknown Branch',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                                    );
-                                  },
-                                ),
-                                const SizedBox(height: 4),
-                                FutureBuilder<Item?>(
-                                  future: db.itemsDao.getItemById(req.itemId),
-                                  builder: (context, itemSnapshot) {
-                                    final item = itemSnapshot.data;
-                                    return Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text('Item: ${item?.name ?? 'Unknown'}', style: const TextStyle(fontSize: 15)),
-                                        if (item != null)
-                                          Text('Current Commissary Stock: ${item.stock}', style: TextStyle(color: item.stock < req.quantityRequested ? Colors.red : Colors.green, fontSize: 12)),
-                                      ],
-                                    );
-                                  },
-                                ),
-                                const SizedBox(height: 4),
-                                Text('Requested Qty: ${req.quantityRequested}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                              ],
-                            ),
-                          ),
-                          Column(
-                            children: [
-                              ElevatedButton(
-                                onPressed: () => _approveRequest(req),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.green,
-                                  foregroundColor: Colors.white,
-                                ),
-                                child: const Text('Approve'),
-                              ),
-                              const SizedBox(height: 8),
-                              OutlinedButton(
-                                onPressed: () => _rejectRequest(req),
-                                style: OutlinedButton.styleFrom(
-                                  foregroundColor: Colors.red,
-                                  side: const BorderSide(color: Colors.red),
-                                ),
-                                child: const Text('Reject'),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          );
-        },
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildPendingRequestsTab() {
+    return StreamBuilder<List<StockReplenishmentRequest>>(
+      stream: db.stockReplenishmentRequestsDao.watchPendingRequests(
+        commissaryId!,
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        final allRequests = snapshot.data!;
+
+        // Filter requests based on search
+        final requests = allRequests.where((req) {
+          if (searchQuery.isEmpty) return true;
+          return req.id.toString().contains(searchQuery) ||
+              req.quantityRequested.toString().contains(searchQuery);
+        }).toList();
+
+        if (requests.isEmpty) {
+          return emptyTables(
+            message: allRequests.isEmpty
+                ? 'No pending requests. All caught up!'
+                : 'No requests match your search.',
+            onAddPressed: null,
+            buttonType: EmptyButtonType.none,
+          );
+        }
+
+        return FutureBuilder<List<List<dynamic>>>(
+          future: _buildRequestRows(requests),
+          builder: (context, rowSnapshot) {
+            if (!rowSnapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            return buildUniversalTable(
+              headers: [
+                'Request ID',
+                'Branch',
+                'Item',
+                'Qty Requested',
+                'Stock Available',
+                'Date',
+                'Status',
+                '',
+              ],
+              rows: rowSnapshot.data!,
+              smallHeaderWidth: 20,
+              largeHeaderWidth: 60,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<List<List<dynamic>>> _buildRequestRows(
+    List<StockReplenishmentRequest> requests,
+  ) async {
+    List<List<dynamic>> rows = [];
+
+    for (final req in requests) {
+      final org = await db.organizationsDao.getOrganizationById(
+        req.franchiseeId,
+      );
+      final item = await db.itemsDao.getItemById(req.itemId);
+
+      rows.add([
+        Text('#${req.id}', style: const TextStyle(fontFamily: fontAll)),
+        Text(
+          org?.name ?? 'Unknown Branch',
+          style: const TextStyle(fontFamily: fontAll),
+        ),
+        Text(
+          item?.name ?? 'Unknown Item',
+          style: const TextStyle(fontFamily: fontAll),
+        ),
+        Text(
+          '${req.quantityRequested}',
+          style: const TextStyle(
+            fontFamily: fontAll,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          '${item?.stock ?? 0}',
+          style: TextStyle(
+            fontFamily: fontAll,
+            color: (item?.stock ?? 0) < req.quantityRequested
+                ? Colors.red
+                : Colors.green,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          DateFormat('MMM d, yyyy').format(req.createdAt),
+          style: const TextStyle(fontFamily: fontAll, fontSize: 12),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.orange.shade100,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            'Pending',
+            style: TextStyle(color: Colors.orange.shade800, fontSize: 12),
+          ),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              icon: const Icon(
+                Icons.check_circle,
+                color: Colors.green,
+                size: 20,
+              ),
+              tooltip: 'Approve',
+              onPressed: () => _approveRequest(req),
+            ),
+            IconButton(
+              icon: const Icon(Icons.cancel, color: Colors.red, size: 20),
+              tooltip: 'Reject',
+              onPressed: () => _rejectRequest(req),
+            ),
+          ],
+        ),
+      ]);
+    }
+
+    return rows;
+  }
+
+  Widget _buildHistoryTab() {
+    return StreamBuilder<List<StockReplenishmentRequest>>(
+      stream: db.stockReplenishmentRequestsDao.watchAllRequests(commissaryId!),
+      builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return Center(child: Text('Error: ${snapshot.error}'));
+        }
+
+        if (!snapshot.hasData) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        // Filter to show only non-pending (approved/rejected) requests
+        final allRequests = snapshot.data!
+            .where((r) => r.status != 'pending')
+            .toList();
+
+        // Filter requests based on search
+        final requests = allRequests.where((req) {
+          if (searchQuery.isEmpty) return true;
+          return req.id.toString().contains(searchQuery) ||
+              req.status.toLowerCase().contains(searchQuery);
+        }).toList();
+
+        if (requests.isEmpty) {
+          return emptyTables(
+            message: allRequests.isEmpty
+                ? 'No request history yet.'
+                : 'No requests match your search.',
+            onAddPressed: null,
+            buttonType: EmptyButtonType.none,
+          );
+        }
+
+        return FutureBuilder<List<List<dynamic>>>(
+          future: _buildHistoryRows(requests),
+          builder: (context, rowSnapshot) {
+            if (!rowSnapshot.hasData) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            return buildUniversalTable(
+              headers: [
+                'Request ID',
+                'Branch',
+                'Item',
+                'Qty Requested',
+                'Date',
+                'Reviewed',
+                'Status',
+                '',
+              ],
+              rows: rowSnapshot.data!,
+              smallHeaderWidth: 20,
+              largeHeaderWidth: 60,
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<List<List<dynamic>>> _buildHistoryRows(
+    List<StockReplenishmentRequest> requests,
+  ) async {
+    List<List<dynamic>> rows = [];
+
+    for (final req in requests) {
+      final org = await db.organizationsDao.getOrganizationById(
+        req.franchiseeId,
+      );
+      final item = await db.itemsDao.getItemById(req.itemId);
+
+      final isApproved = req.status == 'approved';
+
+      rows.add([
+        Text('#${req.id}', style: const TextStyle(fontFamily: fontAll)),
+        Text(
+          org?.name ?? 'Unknown Branch',
+          style: const TextStyle(fontFamily: fontAll),
+        ),
+        Text(
+          item?.name ?? 'Unknown Item',
+          style: const TextStyle(fontFamily: fontAll),
+        ),
+        Text(
+          '${req.quantityRequested}',
+          style: const TextStyle(fontFamily: fontAll),
+        ),
+        Text(
+          DateFormat('MMM d, yyyy').format(req.createdAt),
+          style: const TextStyle(fontFamily: fontAll, fontSize: 12),
+        ),
+        Text(
+          req.reviewedAt != null
+              ? DateFormat('MMM d, yyyy').format(req.reviewedAt!)
+              : '-',
+          style: const TextStyle(fontFamily: fontAll, fontSize: 12),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: isApproved ? Colors.green.shade100 : Colors.red.shade100,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            isApproved ? 'Approved' : 'Rejected',
+            style: TextStyle(
+              color: isApproved ? Colors.green : Colors.red,
+              fontSize: 12,
+            ),
+          ),
+        ),
+        const SizedBox.shrink(), // Empty cell for actions column
+      ]);
+    }
+
+    return rows;
   }
 }
