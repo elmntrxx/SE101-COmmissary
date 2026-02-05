@@ -53,6 +53,9 @@ class OrganizationsDao extends DatabaseAccessor<AppDatabase>
     return results.isEmpty ? null : results.first;
   }
 
+  /// Alias for getOrganizationByCloudId (for SyncEngine compatibility)
+  Future<Organization?> getByCloudId(String cloudId) => getOrganizationByCloudId(cloudId);
+
   /// Get commissary (the parent organization)
   /// Returns the first active commissary if multiple exist (handles duplicate data gracefully)
   Future<Organization?> getCommissary() async {
@@ -117,24 +120,30 @@ class OrganizationsDao extends DatabaseAccessor<AppDatabase>
   // ============================================================================
 
   /// Upsert a single organization from cloud data
+  /// SyncEngine provides camelCase keys
   /// Returns the local ID of the inserted/updated organization
   Future<int> upsertFromCloud(Map<String, dynamic> cloudData) async {
-    final cloudId = cloudData['cloud_id'] as String;
+    final cloudId = (cloudData['cloudId'] ?? cloudData['cloud_id']) as String?;
+    if (cloudId == null) throw ArgumentError('cloudId is required');
     
     // Check if organization already exists by cloud_id
     final existing = await getOrganizationByCloudId(cloudId);
     
     if (existing != null) {
+      // Protect local unsynced changes from being overwritten
+      if (existing.needsSync) {
+        return existing.id;
+      }
       // Update existing organization
       await (update(organizations)..where((o) => o.id.equals(existing.id))).write(
         OrganizationsCompanion(
-          name: Value(cloudData['name'] as String),
-          type: Value(cloudData['type'] as String),
+          name: Value(cloudData['name'] as String? ?? existing.name),
+          type: Value(cloudData['type'] as String? ?? existing.type),
           address: Value(cloudData['address'] as String?),
           phone: Value(cloudData['phone'] as String?),
           email: Value(cloudData['email'] as String?),
-          parentCommissaryId: Value(cloudData['parent_commissary_id'] as String?),
-          isActive: Value(cloudData['is_active'] as bool? ?? true),
+          parentCommissaryId: Value(cloudData['parentCommissaryId'] as String?),
+          isActive: Value(cloudData['isActive'] as bool? ?? true),
           updatedAt: Value(DateTime.now()),
           lastSyncedAt: Value(DateTime.now()),
           needsSync: const Value(false),
@@ -146,13 +155,13 @@ class OrganizationsDao extends DatabaseAccessor<AppDatabase>
       final id = await into(organizations).insert(
         OrganizationsCompanion.insert(
           cloudId: cloudId,
-          name: cloudData['name'] as String,
-          type: cloudData['type'] as String,
+          name: cloudData['name'] as String? ?? 'Unknown',
+          type: cloudData['type'] as String? ?? 'franchisee',
           address: Value(cloudData['address'] as String?),
           phone: Value(cloudData['phone'] as String?),
           email: Value(cloudData['email'] as String?),
-          parentCommissaryId: Value(cloudData['parent_commissary_id'] as String?),
-          isActive: Value(cloudData['is_active'] as bool? ?? true),
+          parentCommissaryId: Value(cloudData['parentCommissaryId'] as String?),
+          isActive: Value(cloudData['isActive'] as bool? ?? true),
           lastSyncedAt: Value(DateTime.now()),
           needsSync: const Value(false),
         ),

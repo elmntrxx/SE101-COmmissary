@@ -77,12 +77,15 @@ class RealtimeStockRequestService {
   // Polling fallback
   Timer? _pollingTimer;
   DateTime? _lastPollTime;
+  Timer? _realtimeRetryTimer;
+  bool _isAttemptingRealtime = false;
   
   // Adaptive polling intervals
   Duration _currentPollingInterval = const Duration(seconds: 5);
   static const Duration _wifiPollingInterval = Duration(seconds: 5);
   static const Duration _cellularPollingInterval = Duration(seconds: 10);
   static const Duration _lowBatteryPollingInterval = Duration(seconds: 30);
+  static const Duration _realtimeRetryInterval = Duration(seconds: 60);
   
   // Debouncing
   Timer? _debounceTimer;
@@ -178,6 +181,7 @@ class RealtimeStockRequestService {
     
     _pollingTimer?.cancel();
     _pollingTimer = null;
+    _cancelRealtimeRetry();
     
     _updateStatus(RealtimeConnectionStatus.disconnected);
   }
@@ -205,6 +209,8 @@ class RealtimeStockRequestService {
     }
 
     _updateStatus(RealtimeConnectionStatus.connecting);
+    debugPrint('Realtime: startListening cloudId=$_commissaryCloudId');
+    await _debugLogContext();
     
     // Start connectivity monitoring for adaptive polling
     _startConnectivityMonitoring();
@@ -214,32 +220,81 @@ class RealtimeStockRequestService {
 
   Future<void> _connectWithRetry() async {
     if (_isPaused || _activeScreenCount == 0) return;
+    if (_isAttemptingRealtime) return;
 
-    // Skip WebSocket attempts and go straight to polling for reliability
-    AppLogger.sync('📊 Using polling mode for reliability');
-    _startPollingFallback();
+    _isAttemptingRealtime = true;
+    try {
+      _updateStatus(RealtimeConnectionStatus.connecting);
+
+      int attempt = 0;
+      while (attempt < _maxRetries && !_isPaused && _activeScreenCount > 0) {
+        attempt++;
+        try {
+          await _createChannel();
+          _cancelRealtimeRetry();
+          _pollingTimer?.cancel();
+          _pollingTimer = null;
+          return;
+        } catch (e) {
+          AppLogger.sync('WARN Realtime connect attempt $attempt failed: $e');
+          debugPrint('Realtime: connect attempt $attempt failed: $e');
+          if (attempt >= _maxRetries) {
+            _startPollingFallback();
+            _scheduleRealtimeRetry();
+            return;
+          }
+          await Future.delayed(_calculateBackoff(attempt));
+        }
+      }
+    } finally {
+      _isAttemptingRealtime = false;
+    }
   }
 
   Future<void> _createChannel() async {
+    if (_stockRequestChannel != null) {
+      await supabase.removeChannel(_stockRequestChannel!);
+      _stockRequestChannel = null;
+    }
     _stockRequestChannel = supabase.channel('stock-request-feed-commissary-${_commissaryCloudId}');
 
     final completer = Completer<void>();
     
     _stockRequestChannel!
         .onPostgresChanges(
-          event: PostgresChangeEvent.insert,
+          event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'stock_replenishment_requests',
-          filter: PostgresChangeFilter(
-            type: PostgresChangeFilterType.eq,
-            column: 'commissary_id',
-            value: _commissaryCloudId!,
-          ),
           callback: (payload) {
-            _handleNewRequest(payload.newRecord);
+            AppLogger.sync('Realtime payload event=${payload.eventType}');
+            AppLogger.sync('Realtime payload newRecord=${payload.newRecord}');
+            AppLogger.sync('Realtime payload oldRecord=${payload.oldRecord}');
+            debugPrint('Realtime payload event=${payload.eventType}');
+            debugPrint('Realtime payload newRecord=${payload.newRecord}');
+            debugPrint('Realtime payload oldRecord=${payload.oldRecord}');
+
+            final newRecord = payload.newRecord;
+            final commissaryId = newRecord['commissary_id']?.toString();
+            AppLogger.sync('Realtime filter commissary_id=$commissaryId expected=$_commissaryCloudId');
+            debugPrint('Realtime filter commissary_id=$commissaryId expected=$_commissaryCloudId');
+            if (commissaryId != _commissaryCloudId) {
+              AppLogger.sync('Realtime filter mismatch, skipping');
+              debugPrint('Realtime filter mismatch, skipping');
+              return;
+            }
+            if (payload.eventType == PostgresChangeEvent.insert ||
+                payload.eventType == PostgresChangeEvent.update) {
+              AppLogger.sync('Realtime accepted event, handling request');
+              debugPrint('Realtime accepted event, handling request');
+              _handleNewRequest(newRecord);
+            } else {
+              AppLogger.sync('Realtime ignoring event type ${payload.eventType}');
+              debugPrint('Realtime ignoring event type ${payload.eventType}');
+            }
           },
         )
         .subscribe((status, error) {
+          AppLogger.sync('Realtime subscription status: $status, error: $error');
           if (status == RealtimeSubscribeStatus.subscribed) {
             _updateStatus(RealtimeConnectionStatus.connected);
             if (!completer.isCompleted) {
@@ -286,6 +341,8 @@ class RealtimeStockRequestService {
     _pollingTimer = null;
     _debounceTimer?.cancel();
     _debounceTimer = null;
+    _realtimeRetryTimer?.cancel();
+    _realtimeRetryTimer = null;
     _connectivitySubscription?.cancel();
     _connectivitySubscription = null;
     
@@ -414,6 +471,7 @@ class RealtimeStockRequestService {
       // Broadcast event
       _eventController.add(event);
       onNewRequest?.call(event);
+      AppLogger.sync('Realtime event: request ${event.cloudId} status=${event.status}');
       
       if (kDebugMode) {
         AppLogger.sync('📬 New stock request received: ${event.cloudId}');
@@ -466,6 +524,25 @@ class RealtimeStockRequestService {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
+  Future<void> _debugLogContext() async {
+    try {
+      final user = supabase.auth.currentUser;
+      AppLogger.sync('Realtime auth user: ${user?.id ?? "none"}');
+      final response = await supabase
+          .from('stock_replenishment_requests')
+          .select('cloud_id, commissary_id, franchisee_id, status, created_at')
+          .order('created_at', ascending: false)
+          .limit(1);
+      if (response is List && response.isNotEmpty) {
+        AppLogger.sync('Realtime debug latest request: ${response.first}');
+      } else {
+        AppLogger.sync('Realtime debug latest request: none');
+      }
+    } catch (e) {
+      AppLogger.error('Realtime debug query failed: $e');
+    }
+  }
+
   // UTILITIES
   // ═══════════════════════════════════════════════════════════════════════════
 
@@ -475,6 +552,22 @@ class RealtimeStockRequestService {
       _statusController.add(newStatus);
       onConnectionStatusChanged?.call(newStatus);
     }
+  }
+
+  void _scheduleRealtimeRetry() {
+    if (_realtimeRetryTimer != null) return;
+    _realtimeRetryTimer = Timer.periodic(_realtimeRetryInterval, (_) {
+      if (_isPaused || _activeScreenCount == 0) return;
+      if (_status == RealtimeConnectionStatus.polling ||
+          _status == RealtimeConnectionStatus.reconnecting) {
+        _connectWithRetry();
+      }
+    });
+  }
+
+  void _cancelRealtimeRetry() {
+    _realtimeRetryTimer?.cancel();
+    _realtimeRetryTimer = null;
   }
 
   /// Calculate exponential backoff with jitter
@@ -498,6 +591,7 @@ class RealtimeStockRequestService {
   void dispose() {
     _pollingTimer?.cancel();
     _debounceTimer?.cancel();
+    _realtimeRetryTimer?.cancel();
     _connectivitySubscription?.cancel();
     _stopListening();
     _statusController.close();

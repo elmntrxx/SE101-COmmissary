@@ -185,7 +185,11 @@ CREATE POLICY organizations_anon_select ON organizations
 CREATE POLICY organizations_star_select ON organizations
     FOR SELECT TO authenticated
     USING (
-        CASE 
+        -- BOOTSTRAP: Always allow user to read their own organization (for login flow)
+        -- This bypasses the CASE logic when get_current_user_organization_id() would fail
+        cloud_id = (SELECT organization_id FROM users WHERE auth_user_id = auth.uid() LIMIT 1)
+        -- Normal role-based visibility
+        OR CASE 
             WHEN is_commissary_user() THEN
                 -- Commissary sees: self + all child franchisees
                 cloud_id = get_current_user_organization_id()

@@ -1,5 +1,4 @@
 // lib/screens/requests/requests_page.dart
-import 'dart:async';
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -15,23 +14,23 @@ class RequestsPage extends StatefulWidget {
   State<RequestsPage> createState() => _RequestsPageState();
 }
 
-class _RequestsPageState extends State<RequestsPage> with WidgetsBindingObserver {
+class _RequestsPageState extends State<RequestsPage> {
   late AppDatabase db;
   int? currentUserId;
   int? commissaryId;
   String? _commissaryCloudId;
-  StreamSubscription<StockRequestEvent>? _eventSubscription;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
     db = database;
     _loadContext();
   }
 
   Future<void> _loadContext() async {
+    debugPrint('RequestsPage: loading context...');
     final user = AppGlobals.instance.authService.currentUser;
+    debugPrint('RequestsPage: currentUser=${user?.id} orgId=${user?.organizationId}');
     if (user != null) {
       if (mounted) {
         setState(() {
@@ -39,61 +38,32 @@ class _RequestsPageState extends State<RequestsPage> with WidgetsBindingObserver
           commissaryId = user.organizationId;
         });
       }
-      
-      // Initialize realtime after we have commissaryId
-      await _initializeRealtime();
-    }
-  }
 
-  Future<void> _initializeRealtime() async {
-    if (commissaryId == null) return;
-    
-    try {
-      final org = await db.organizationsDao.getOrganizationById(commissaryId!);
-      if (org?.cloudId != null) {
-        _commissaryCloudId = org!.cloudId;
-        
-        // Attach to realtime service
-        await realtimeStockRequestService.attach(_commissaryCloudId!);
-        
-        // Listen for new request events
-        _eventSubscription = realtimeStockRequestService.eventStream.listen((event) {
-          print('📬 New stock request received: ${event.cloudId}');
-          // The StreamBuilder will automatically update, but we can trigger a refresh
-          if (mounted) {
-            setState(() {}); // Trigger rebuild to update any counters/badges
-          }
-        });
+      try {
+        final org = await db.organizationsDao.getOrganizationById(user.organizationId);
+        debugPrint('RequestsPage: org cloudId=${org?.cloudId}');
+        if (org?.cloudId != null) {
+          _commissaryCloudId = org!.cloudId;
+          debugPrint('RequestsPage: attaching realtime cloudId=$_commissaryCloudId');
+          await realtimeStockRequestService.attach(_commissaryCloudId!);
+          realtimeStockRequestService.statusStream.listen((status) {
+            debugPrint('RequestsPage: realtime status=$status');
+          });
+          realtimeStockRequestService.eventStream.listen((event) {
+            debugPrint('RequestsPage: realtime event cloudId=${event.cloudId} status=${event.status}');
+          });
+        }
+      } catch (e) {
+        debugPrint('RequestsPage: WARN Failed to initialize realtime: $e');
       }
-    } catch (e) {
-      print('⚠️ Failed to initialize realtime: $e');
+    } else {
+      debugPrint('RequestsPage: no currentUser yet');
     }
   }
 
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
-    print('📱 App lifecycle state changed: $state');
-    switch (state) {
-      case AppLifecycleState.paused:
-        // Only pause when app truly goes to background
-        realtimeStockRequestService.pause();
-        break;
-      case AppLifecycleState.resumed:
-        realtimeStockRequestService.resume();
-        break;
-      case AppLifecycleState.inactive:
-      case AppLifecycleState.detached:
-      case AppLifecycleState.hidden:
-        // Don't pause on inactive - this triggers too easily
-        break;
-    }
-  }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    _eventSubscription?.cancel();
     realtimeStockRequestService.detach();
     super.dispose();
   }

@@ -334,6 +334,72 @@ class RecipeIngredientsDao extends DatabaseAccessor<AppDatabase>
       ),
     );
   }
+
+  /// Get by cloud ID
+  Future<RecipeIngredient?> getByCloudId(String cloudId) {
+    return (select(recipeIngredients)..where((r) => r.cloudId.equals(cloudId)))
+        .getSingleOrNull();
+  }
+
+  // ============================================================================
+  // SYNC METHODS (for SyncEngine compatibility)
+  // ============================================================================
+
+  /// Upsert a single recipe ingredient from cloud data
+  /// SyncEngine provides camelCase keys with resolved local IDs
+  Future<int> upsertFromCloud(Map<String, dynamic> cloudData) async {
+    final cloudId = (cloudData['cloudId'] ?? cloudData['cloud_id']) as String?;
+    if (cloudId == null) throw ArgumentError('cloudId is required');
+
+    final existing = await getByCloudId(cloudId);
+
+    // Protect local unsynced changes from being overwritten
+    if (existing != null && existing.needsSync) {
+      return existing.id;
+    }
+
+    // SyncEngine already resolves FKs to local IDs with camelCase keys
+    final itemId = cloudData['itemId'] as int?;
+    final ingredientId = cloudData['ingredientId'] as int?;
+
+    if (itemId == null || ingredientId == null) {
+      // Can't create without FKs
+      return -1;
+    }
+
+    final companion = RecipeIngredientsCompanion(
+      cloudId: Value(cloudId),
+      itemId: Value(itemId),
+      ingredientId: Value(ingredientId),
+      quantity: Value((cloudData['quantity'] as num?)?.toDouble() ?? 0.0),
+      createdAt: cloudData['createdAt'] != null
+          ? Value(cloudData['createdAt'] is DateTime 
+              ? cloudData['createdAt'] as DateTime 
+              : DateTime.parse(cloudData['createdAt'] as String))
+          : Value(DateTime.now()),
+      updatedAt: cloudData['updatedAt'] != null
+          ? Value(cloudData['updatedAt'] is DateTime 
+              ? cloudData['updatedAt'] as DateTime 
+              : DateTime.parse(cloudData['updatedAt'] as String))
+          : Value(DateTime.now()),
+      lastSyncedAt: Value(DateTime.now()),
+      needsSync: const Value(false),
+    );
+
+    if (existing != null) {
+      await (update(recipeIngredients)..where((r) => r.id.equals(existing.id))).write(companion);
+      return existing.id;
+    } else {
+      return into(recipeIngredients).insert(companion);
+    }
+  }
+
+  /// Upsert batch of recipe ingredients from cloud data
+  Future<void> upsertBatchFromCloud(List<Map<String, dynamic>> cloudDataList) async {
+    for (final cloudData in cloudDataList) {
+      await upsertFromCloud(cloudData);
+    }
+  }
 }
 
 /// Input model for recipe ingredient

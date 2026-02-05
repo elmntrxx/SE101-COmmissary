@@ -319,19 +319,23 @@ class BranchItemStockDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Upsert from cloud (for sync)
+  /// SyncEngine provides camelCase keys with resolved local IDs
   Future<void> upsertFromCloud(Map<String, dynamic> data) async {
-    final cloudId = data['cloud_id'] as String;
+    final cloudId = (data['cloudId'] ?? data['cloud_id']) as String?;
+    if (cloudId == null) throw ArgumentError('cloudId is required');
 
     // Check if exists by cloud_id
     var existing = await (select(branchItemStock)
           ..where((s) => s.cloudId.equals(cloudId)))
         .getSingleOrNull();
 
+    // SyncEngine already resolves FKs to local IDs with camelCase keys
+    final orgId = data['organizationId'] as int?;
+    final itemId = data['itemId'] as int?;
+
     // If not found by cloud_id, try finding by matching composite key (org + item)
-    // This handles linking local records that haven't synced their cloud_id yet (fixes UNIQUE constraint error)
-    if (existing == null) {
-       final orgId = data['organization_id'] as int;
-       final itemId = data['item_id'] as int;
+    // This handles linking local records that haven't synced their cloud_id yet
+    if (existing == null && orgId != null && itemId != null) {
        existing = await (select(branchItemStock)
              ..where((s) => s.organizationId.equals(orgId))
              ..where((s) => s.itemId.equals(itemId)))
@@ -344,22 +348,28 @@ class BranchItemStockDao extends DatabaseAccessor<AppDatabase>
     }
 
     final companion = BranchItemStockCompanion(
-      organizationId: Value(data['organization_id'] as int),
-      itemId: Value(data['item_id'] as int),
-      stock: Value(data['stock'] as int? ?? 0),
-      sold: Value(data['sold'] as int? ?? 0),
-      spoilage: Value(data['spoilage'] as int? ?? 0),
+      organizationId: Value(orgId ?? existing?.organizationId ?? 0),
+      itemId: Value(itemId ?? existing?.itemId ?? 0),
+      stock: Value((data['stock'] as num?)?.toInt() ?? 0),
+      sold: Value((data['sold'] as num?)?.toInt() ?? 0),
+      spoilage: Value((data['spoilage'] as num?)?.toInt() ?? 0),
       price: data['price'] != null ? Value((data['price'] as num).toDouble()) : const Value.absent(),
-      costPrice: data['cost_price'] != null ? Value((data['cost_price'] as num).toDouble()) : const Value.absent(),
-      minimumStock: data['minimum_stock'] != null ? Value(data['minimum_stock'] as int) : const Value.absent(),
-      lastReceivedAt: data['last_received_at'] != null 
-          ? Value(DateTime.parse(data['last_received_at'] as String))
+      costPrice: data['costPrice'] != null ? Value((data['costPrice'] as num).toDouble()) : const Value.absent(),
+      minimumStock: data['minimumStock'] != null ? Value((data['minimumStock'] as num).toInt()) : const Value.absent(),
+      lastReceivedAt: data['lastReceivedAt'] != null 
+          ? Value(data['lastReceivedAt'] is DateTime 
+              ? data['lastReceivedAt'] as DateTime 
+              : DateTime.parse(data['lastReceivedAt'] as String))
           : const Value.absent(),
-      lastReceivedQuantity: data['last_received_quantity'] != null 
-          ? Value(data['last_received_quantity'] as int)
+      lastReceivedQuantity: data['lastReceivedQuantity'] != null 
+          ? Value((data['lastReceivedQuantity'] as num).toInt())
           : const Value.absent(),
-      lastUpdated: Value(DateTime.parse(data['last_updated'] as String)),
-      isDeleted: Value(data['is_deleted'] as bool? ?? false),
+      lastUpdated: data['lastUpdated'] != null 
+          ? Value(data['lastUpdated'] is DateTime 
+              ? data['lastUpdated'] as DateTime 
+              : DateTime.parse(data['lastUpdated'] as String))
+          : Value(DateTime.now()),
+      isDeleted: Value(data['isDeleted'] as bool? ?? false),
       isSynced: const Value(true),
       cloudId: Value(cloudId),
     );
@@ -379,6 +389,12 @@ class BranchItemStockDao extends DatabaseAccessor<AppDatabase>
         await upsertFromCloud(data);
       }
     });
+  }
+
+  /// Get by cloud ID (for SyncEngine compatibility)
+  Future<BranchItemStockData?> getByCloudId(String cloudId) {
+    return (select(branchItemStock)..where((s) => s.cloudId.equals(cloudId)))
+        .getSingleOrNull();
   }
 
   // ============================================================================

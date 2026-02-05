@@ -488,5 +488,70 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
       ),
     );
   }
+
+  // ============================================================================
+  // SYNC METHODS (for SyncEngine compatibility)
+  // ============================================================================
+
+  /// Upsert a single item from cloud data
+  /// SyncEngine provides camelCase keys with resolved local IDs
+  Future<int> upsertFromCloud(Map<String, dynamic> cloudData) async {
+    // SyncEngine uses 'cloudId' (camelCase), not 'cloud_id'
+    final cloudId = (cloudData['cloudId'] ?? cloudData['cloud_id']) as String?;
+    if (cloudId == null) throw ArgumentError('cloudId is required');
+
+    final existing = await getItemByCloudId(cloudId);
+
+    // SyncEngine already resolves FKs to local IDs with camelCase keys
+    final orgId = cloudData['organizationId'] as int?;
+    final catId = cloudData['categoryId'] as int?;
+    final masterItemId = cloudData['masterItemId'] as String?;
+
+    final companion = ItemsCompanion(
+      cloudId: Value(cloudId),
+      organizationId: Value(orgId ?? existing?.organizationId ?? 0),
+      categoryId: Value(catId),
+      masterItemId: Value(masterItemId),
+      name: Value(cloudData['name'] as String? ?? 'Unknown'),
+      description: Value(cloudData['description'] as String?),
+      stock: Value((cloudData['stock'] as num?)?.toInt() ?? 0),
+      price: Value((cloudData['price'] as num?)?.toDouble() ?? 0.0),
+      cost: Value((cloudData['cost'] as num?)?.toDouble() ?? 0.0),
+      sold: Value((cloudData['sold'] as num?)?.toInt() ?? 0),
+      spoilage: Value((cloudData['spoilage'] as num?)?.toInt() ?? 0),
+      criticalLevel: Value((cloudData['criticalLevel'] as num?)?.toInt() ?? 10),
+      isActive: Value(cloudData['isActive'] as bool? ?? true),
+      createdAt: cloudData['createdAt'] != null
+          ? Value(cloudData['createdAt'] is DateTime 
+              ? cloudData['createdAt'] as DateTime 
+              : DateTime.parse(cloudData['createdAt'] as String))
+          : Value(DateTime.now()),
+      updatedAt: cloudData['updatedAt'] != null
+          ? Value(cloudData['updatedAt'] is DateTime 
+              ? cloudData['updatedAt'] as DateTime 
+              : DateTime.parse(cloudData['updatedAt'] as String))
+          : Value(DateTime.now()),
+      lastSyncedAt: Value(DateTime.now()),
+      needsSync: const Value(false),
+    );
+
+    if (existing != null) {
+      // Protect local unsynced changes from being overwritten
+      if (existing.needsSync) {
+        return existing.id;
+      }
+      await (update(items)..where((i) => i.id.equals(existing.id))).write(companion);
+      return existing.id;
+    } else {
+      return into(items).insert(companion);
+    }
+  }
+
+  /// Upsert batch of items from cloud data
+  Future<void> upsertBatchFromCloud(List<Map<String, dynamic>> cloudDataList) async {
+    for (final cloudData in cloudDataList) {
+      await upsertFromCloud(cloudData);
+    }
+  }
 }
 

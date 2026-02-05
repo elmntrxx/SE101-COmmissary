@@ -8,7 +8,7 @@ import 'package:window_size/window_size.dart';
 
 import 'config/supabase_config.dart';
 import 'database/app_database.dart';
-import 'services/supabase_sync_service.dart';
+import 'services/supabase_sync_service_v2.dart';
 import 'services/supabase_auth_service.dart';
 import 'services/realtime_stock_request_service.dart';
 import 'app_globals.dart';
@@ -53,9 +53,9 @@ void main() async {
     print('📱 App will work in offline-only mode');
   }
 
-  // Initialize sync service
-  print('🔄 Initializing sync service...');
-  final syncService = SupabaseSyncService(
+  // Initialize sync service (V2 - uses authenticated client with RLS)
+  print('🔄 Initializing sync service V2...');
+  final syncService = SupabaseSyncServiceV2(
     db: db,
     supabase: supabaseInitialized
         ? Supabase.instance.client
@@ -108,6 +108,32 @@ void main() async {
     syncService.initialize().then((_) {
       syncService.startPeriodicSync();
     });
+    
+    // Wire up auth state to sync service organization context
+    authService.authStateChanges.listen((user) {
+      if (user != null) {
+        // User logged in - set organization context for sync
+        syncService.setOrganizationContext(
+          organizationType: user.organizationType,
+          organizationId: user.organizationId,
+          organizationCloudId: user.organizationCloudId ?? '',
+        );
+        print('🔄 Sync context set: ${user.organizationType} (org ${user.organizationId})');
+        // Trigger a sync now that we have context
+        syncService.performFullSync();
+      }
+    });
+    
+    // If user is already logged in, set context immediately
+    if (authService.currentUser != null) {
+      final user = authService.currentUser!;
+      syncService.setOrganizationContext(
+        organizationType: user.organizationType,
+        organizationId: user.organizationId,
+        organizationCloudId: user.organizationCloudId ?? '',
+      );
+      print('🔄 Sync context set (existing session): ${user.organizationType} (org ${user.organizationId})');
+    }
   }
 
   runApp(const CommissaryApp());
