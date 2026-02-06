@@ -206,44 +206,63 @@ class StockReplenishmentRequestsDao extends DatabaseAccessor<AppDatabase>
     return rows > 0;
   }
 
-  /// Upsert from cloud
+  /// Upsert from cloud (SyncEngine provides camelCase keys with resolved local IDs)
   Future<void> upsertFromCloud(Map<String, dynamic> data) async {
-    final cloudId = data['cloud_id'] as String;
-
+    // SyncEngine uses 'cloudId' (camelCase), not 'cloud_id'
+    final cloudId = (data['cloudId'] ?? data['cloud_id']) as String?;
+    if (cloudId == null) throw ArgumentError('cloudId is required');
+    
     // Check if exists
     final existing = await getRequestByCloudId(cloudId);
-
+    
+    // SyncEngine resolves FKs to local IDs with camelCase keys
+    final franchiseeId = data['franchiseeId'] as int?;
+    final commissaryId = data['commissaryId'] as int?;
+    final itemId = data['itemId'] as int?;
+    final requestedBy = data['requestedBy'] as int?;
+    final reviewedBy = data['reviewedBy'] as int?;
+    
     final companion = StockReplenishmentRequestsCompanion(
-      franchiseeId: Value(data['franchisee_id'] as int),
-      commissaryId: Value(data['commissary_id'] as int),
-      itemId: Value(data['item_id'] as int),
-      quantityRequested: Value(data['quantity_requested'] as int),
-      status: Value(data['status'] as String? ?? 'pending'),
-      requestedBy: Value(data['requested_by'] as int),
-      requestedAt: data['requested_at'] != null
-          ? Value(DateTime.parse(data['requested_at'] as String))
+      franchiseeId: Value(franchiseeId ?? existing?.franchiseeId ?? 0),
+      commissaryId: Value(commissaryId ?? existing?.commissaryId ?? 0),
+      itemId: Value(itemId ?? existing?.itemId ?? 0),
+      quantityRequested: Value((data['quantityRequested'] as num?)?.toInt() ?? existing?.quantityRequested ?? 0),
+      status: Value(data['status'] as String? ?? existing?.status ?? 'pending'),
+      requestedBy: Value(requestedBy ?? existing?.requestedBy ?? 0),
+      requestedAt: data['requestedAt'] != null
+          ? Value(data['requestedAt'] is DateTime 
+              ? data['requestedAt'] as DateTime 
+              : DateTime.parse(data['requestedAt'] as String))
+          : (existing?.requestedAt != null ? Value(existing!.requestedAt) : Value(DateTime.now())),
+      reviewedBy: reviewedBy != null
+          ? Value(reviewedBy)
+          : const Value.absent(),
+      reviewedAt: data['reviewedAt'] != null
+          ? Value(data['reviewedAt'] is DateTime 
+              ? data['reviewedAt'] as DateTime 
+              : DateTime.parse(data['reviewedAt'] as String))
+          : const Value.absent(),
+      deliveryDate: data['deliveryDate'] != null
+          ? Value(data['deliveryDate'] is DateTime 
+              ? data['deliveryDate'] as DateTime 
+              : DateTime.parse(data['deliveryDate'] as String))
+          : const Value.absent(),
+      franchiseeNotes: data['franchiseeNotes'] != null
+          ? Value(data['franchiseeNotes'] as String)
+          : const Value.absent(),
+      commissaryNotes: data['commissaryNotes'] != null
+          ? Value(data['commissaryNotes'] as String)
+          : const Value.absent(),
+      isDeleted: Value(data['isDeleted'] as bool? ?? false),
+      createdAt: data['createdAt'] != null
+          ? Value(data['createdAt'] is DateTime 
+              ? data['createdAt'] as DateTime 
+              : DateTime.parse(data['createdAt'] as String))
           : Value(DateTime.now()),
-      reviewedBy: data['reviewed_by'] != null
-          ? Value(data['reviewed_by'] as int)
-          : const Value.absent(),
-      reviewedAt: data['reviewed_at'] != null
-          ? Value(DateTime.parse(data['reviewed_at'] as String))
-          : const Value.absent(),
-      deliveryDate: data['delivery_date'] != null
-          ? Value(DateTime.parse(data['delivery_date'] as String))
-          : const Value.absent(),
-      franchiseeNotes: data['franchisee_notes'] != null
-          ? Value(data['franchisee_notes'] as String)
-          : const Value.absent(),
-      commissaryNotes: data['commissary_notes'] != null
-          ? Value(data['commissary_notes'] as String)
-          : const Value.absent(),
-      isDeleted: Value(data['is_deleted'] as bool? ?? false),
-      createdAt: data['created_at'] != null
-          ? Value(DateTime.parse(data['created_at'] as String))
-          : Value(DateTime.now()),
-      lastUpdated: data['last_updated'] != null
-          ? Value(DateTime.parse(data['last_updated'] as String))
+      lastUpdated: data['lastUpdated'] != null
+          ? Value(data['lastUpdated'] is DateTime 
+              ? data['lastUpdated'] as DateTime 
+              : DateTime.parse(data['lastUpdated'] as String))
           : Value(DateTime.now()),
       isSynced: const Value(true),
       cloudId: Value(cloudId),
@@ -260,6 +279,13 @@ class StockReplenishmentRequestsDao extends DatabaseAccessor<AppDatabase>
       )..where((r) => r.id.equals(existing.id))).write(companion);
     } else {
       await into(stockReplenishmentRequests).insert(companion);
+    }
+  }
+
+  /// Batch upsert from cloud (for SyncEngine compatibility)
+  Future<void> upsertBatchFromCloud(List<Map<String, dynamic>> cloudDataList) async {
+    for (final cloudData in cloudDataList) {
+      await upsertFromCloud(cloudData);
     }
   }
 }

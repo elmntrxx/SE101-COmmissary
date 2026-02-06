@@ -77,4 +77,55 @@ class CategoriesDao extends DatabaseAccessor<AppDatabase>
       ),
     );
   }
+
+  // ============================================================================
+  // SYNC METHODS (for SyncEngine compatibility)
+  // ============================================================================
+
+  /// Upsert a single category from cloud data
+  /// SyncEngine provides camelCase keys
+  Future<int> upsertFromCloud(Map<String, dynamic> cloudData) async {
+    final cloudId = (cloudData['cloudId'] ?? cloudData['cloud_id']) as String?;
+    if (cloudId == null) throw ArgumentError('cloudId is required');
+
+    final existing = await getCategoryByCloudId(cloudId);
+
+    // Protect local unsynced changes from being overwritten
+    if (existing != null && existing.needsSync) {
+      return existing.id;
+    }
+
+    final companion = CategoriesCompanion(
+      cloudId: Value(cloudId),
+      name: Value(cloudData['name'] as String? ?? 'Unknown'),
+      description: Value(cloudData['description'] as String?),
+      isDeleted: Value(cloudData['isDeleted'] as bool? ?? false),
+      createdAt: cloudData['createdAt'] != null
+          ? Value(cloudData['createdAt'] is DateTime 
+              ? cloudData['createdAt'] as DateTime 
+              : DateTime.parse(cloudData['createdAt'] as String))
+          : Value(DateTime.now()),
+      updatedAt: cloudData['updatedAt'] != null
+          ? Value(cloudData['updatedAt'] is DateTime 
+              ? cloudData['updatedAt'] as DateTime 
+              : DateTime.parse(cloudData['updatedAt'] as String))
+          : Value(DateTime.now()),
+      lastSyncedAt: Value(DateTime.now()),
+      needsSync: const Value(false),
+    );
+
+    if (existing != null) {
+      await (update(categories)..where((c) => c.id.equals(existing.id))).write(companion);
+      return existing.id;
+    } else {
+      return into(categories).insert(companion);
+    }
+  }
+
+  /// Upsert batch of categories from cloud data
+  Future<void> upsertBatchFromCloud(List<Map<String, dynamic>> cloudDataList) async {
+    for (final cloudData in cloudDataList) {
+      await upsertFromCloud(cloudData);
+    }
+  }
 }

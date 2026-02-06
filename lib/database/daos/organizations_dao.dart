@@ -53,6 +53,9 @@ class OrganizationsDao extends DatabaseAccessor<AppDatabase>
     return results.isEmpty ? null : results.first;
   }
 
+  /// Alias for getOrganizationByCloudId (for SyncEngine compatibility)
+  Future<Organization?> getByCloudId(String cloudId) => getOrganizationByCloudId(cloudId);
+
   /// Get commissary (the parent organization)
   /// Returns the first active commissary if multiple exist (handles duplicate data gracefully)
   Future<Organization?> getCommissary() async {
@@ -117,46 +120,58 @@ class OrganizationsDao extends DatabaseAccessor<AppDatabase>
   // ============================================================================
 
   /// Upsert a single organization from cloud data
+  /// SyncEngine provides camelCase keys
   /// Returns the local ID of the inserted/updated organization
   Future<int> upsertFromCloud(Map<String, dynamic> cloudData) async {
-    final cloudId = cloudData['cloud_id'] as String;
+    print('🔄 upsertFromCloud: $cloudData');
+    final cloudId = (cloudData['cloudId'] ?? cloudData['cloud_id']) as String?;
+    if (cloudId == null) throw ArgumentError('cloudId is required');
+    print('   - cloudId: $cloudId');
+    print('   - parentCommissaryId: ${cloudData['parentCommissaryId']}');
     
     // Check if organization already exists by cloud_id
     final existing = await getOrganizationByCloudId(cloudId);
     
     if (existing != null) {
+      print('   - Existing record found (id: ${existing.id}, needsSync: ${existing.needsSync})');
+      // Note: Conflict resolution is handled by SyncEngine before calling this method.
+      // If we reach here, the cloud data should be applied.
+      
       // Update existing organization
       await (update(organizations)..where((o) => o.id.equals(existing.id))).write(
         OrganizationsCompanion(
-          name: Value(cloudData['name'] as String),
-          type: Value(cloudData['type'] as String),
+          name: Value(cloudData['name'] as String? ?? existing.name),
+          type: Value(cloudData['type'] as String? ?? existing.type),
           address: Value(cloudData['address'] as String?),
           phone: Value(cloudData['phone'] as String?),
           email: Value(cloudData['email'] as String?),
-          parentCommissaryId: Value(cloudData['parent_commissary_id'] as String?),
-          isActive: Value(cloudData['is_active'] as bool? ?? true),
+          parentCommissaryId: Value(cloudData['parentCommissaryId'] as String?),
+          isActive: Value(cloudData['isActive'] as bool? ?? true),
           updatedAt: Value(DateTime.now()),
           lastSyncedAt: Value(DateTime.now()),
           needsSync: const Value(false),
         ),
       );
+      print('   - ✅ Updated existing organization');
       return existing.id;
     } else {
+      print('   - Creating new organization');
       // Insert new organization
       final id = await into(organizations).insert(
         OrganizationsCompanion.insert(
           cloudId: cloudId,
-          name: cloudData['name'] as String,
-          type: cloudData['type'] as String,
+          name: cloudData['name'] as String? ?? 'Unknown',
+          type: cloudData['type'] as String? ?? 'franchisee',
           address: Value(cloudData['address'] as String?),
           phone: Value(cloudData['phone'] as String?),
           email: Value(cloudData['email'] as String?),
-          parentCommissaryId: Value(cloudData['parent_commissary_id'] as String?),
-          isActive: Value(cloudData['is_active'] as bool? ?? true),
+          parentCommissaryId: Value(cloudData['parentCommissaryId'] as String?),
+          isActive: Value(cloudData['isActive'] as bool? ?? true),
           lastSyncedAt: Value(DateTime.now()),
           needsSync: const Value(false),
         ),
       );
+      print('   - ✅ Created new organization (id: $id)');
       return id;
     }
   }

@@ -1,7 +1,8 @@
 // lib/app_globals.dart
 import 'database/app_database.dart';
-import 'services/supabase_sync_service.dart';
+import 'services/supabase_sync_service_v2.dart';
 import 'services/supabase_auth_service.dart';
+import 'services/realtime_stock_request_service.dart';
 
 /// Global application state singleton
 class AppGlobals {
@@ -10,19 +11,22 @@ class AppGlobals {
   static final AppGlobals instance = AppGlobals._();
 
   late AppDatabase _database;
-  late SupabaseSyncService _syncService;
+  late SupabaseSyncServiceV2 _syncService;
   late SupabaseAuthService _authService;
+  late RealtimeStockRequestService _realtimeStockRequestService;
   bool _isInitialized = false;
 
   /// Initialize the global app state
   void initialize({
     required AppDatabase database,
-    required SupabaseSyncService syncService,
+    required SupabaseSyncServiceV2 syncService,
     required SupabaseAuthService authService,
+    required RealtimeStockRequestService realtimeStockRequestService,
   }) {
     _database = database;
     _syncService = syncService;
     _authService = authService;
+    _realtimeStockRequestService = realtimeStockRequestService;
     _isInitialized = true;
   }
 
@@ -35,7 +39,7 @@ class AppGlobals {
   }
 
   /// Get the sync service instance
-  SupabaseSyncService get syncService {
+  SupabaseSyncServiceV2 get syncService {
     if (!_isInitialized) {
       throw StateError('AppGlobals has not been initialized. Call initialize() first.');
     }
@@ -50,6 +54,14 @@ class AppGlobals {
     return _authService;
   }
 
+  /// Get the realtime stock request service instance
+  RealtimeStockRequestService get realtimeStockRequestService {
+    if (!_isInitialized) {
+      throw StateError('AppGlobals has not been initialized. Call initialize() first.');
+    }
+    return _realtimeStockRequestService;
+  }
+
   /// Check if initialized
   bool get isInitialized => _isInitialized;
 }
@@ -58,7 +70,10 @@ class AppGlobals {
 AppDatabase get database => AppGlobals.instance.database;
 
 /// Convenience getter for sync service
-SupabaseSyncService get syncService => AppGlobals.instance.syncService;
+SupabaseSyncServiceV2 get syncService => AppGlobals.instance.syncService;
 
 /// Convenience getter for auth service
 SupabaseAuthService get authService => AppGlobals.instance.authService;
+
+/// Convenience getter for realtime stock request service
+RealtimeStockRequestService get realtimeStockRequestService => AppGlobals.instance.realtimeStockRequestService;
