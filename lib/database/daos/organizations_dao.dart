@@ -123,17 +123,20 @@ class OrganizationsDao extends DatabaseAccessor<AppDatabase>
   /// SyncEngine provides camelCase keys
   /// Returns the local ID of the inserted/updated organization
   Future<int> upsertFromCloud(Map<String, dynamic> cloudData) async {
+    print('🔄 upsertFromCloud: $cloudData');
     final cloudId = (cloudData['cloudId'] ?? cloudData['cloud_id']) as String?;
     if (cloudId == null) throw ArgumentError('cloudId is required');
+    print('   - cloudId: $cloudId');
+    print('   - parentCommissaryId: ${cloudData['parentCommissaryId']}');
     
     // Check if organization already exists by cloud_id
     final existing = await getOrganizationByCloudId(cloudId);
     
     if (existing != null) {
-      // Protect local unsynced changes from being overwritten
-      if (existing.needsSync) {
-        return existing.id;
-      }
+      print('   - Existing record found (id: ${existing.id}, needsSync: ${existing.needsSync})');
+      // Note: Conflict resolution is handled by SyncEngine before calling this method.
+      // If we reach here, the cloud data should be applied.
+      
       // Update existing organization
       await (update(organizations)..where((o) => o.id.equals(existing.id))).write(
         OrganizationsCompanion(
@@ -149,8 +152,10 @@ class OrganizationsDao extends DatabaseAccessor<AppDatabase>
           needsSync: const Value(false),
         ),
       );
+      print('   - ✅ Updated existing organization');
       return existing.id;
     } else {
+      print('   - Creating new organization');
       // Insert new organization
       final id = await into(organizations).insert(
         OrganizationsCompanion.insert(
@@ -166,6 +171,7 @@ class OrganizationsDao extends DatabaseAccessor<AppDatabase>
           needsSync: const Value(false),
         ),
       );
+      print('   - ✅ Created new organization (id: $id)');
       return id;
     }
   }

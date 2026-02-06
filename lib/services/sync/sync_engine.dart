@@ -429,11 +429,19 @@ class SyncEngine {
           final resolvedRecords = <Map<String, dynamic>>[];
 
           for (final cloudRecord in cloudRecords) {
+            if (kDebugMode && descriptor.tableName == 'organizations') {
+              AppLogger.sync('   🔍 Cloud record: $cloudRecord');
+            }
+            
             // Convert to local format using descriptor
             final localData = descriptor.toLocalFormat(
               cloudRecord,
               getLocalId: getLocalId,
             );
+            
+            if (kDebugMode && descriptor.tableName == 'organizations') {
+              AppLogger.sync('   ➡️ Local format: $localData');
+            }
 
             // Skip if FK resolution failed
             if (localData.isEmpty) {
@@ -447,6 +455,10 @@ class SyncEngine {
             final cloudId = cloudRecord['cloud_id'] as String?;
             if (cloudId != null) {
               final existingRecord = await getByCloudId(cloudId);
+              
+              if (kDebugMode && descriptor.tableName == 'organizations') {
+                AppLogger.sync('   🔍 Existing record for $cloudId: ${existingRecord != null ? 'found' : 'not found'}');
+              }
 
               if (existingRecord != null) {
                 final localUpdated = getLastUpdated(existingRecord);
@@ -454,11 +466,18 @@ class SyncEngine {
                 final cloudUpdated = cloudUpdatedStr != null
                     ? DateTime.tryParse(cloudUpdatedStr)
                     : null;
+                
+                if (kDebugMode && descriptor.tableName == 'organizations') {
+                  AppLogger.sync('   📅 Local updated: $localUpdated, Cloud updated: $cloudUpdated');
+                }
 
                 // Check if local is newer than cloud
                 if (localUpdated != null &&
                     cloudUpdated != null &&
                     localUpdated.isAfter(cloudUpdated)) {
+                  if (kDebugMode && descriptor.tableName == 'organizations') {
+                    AppLogger.sync('   ⚡ Conflict: local is newer than cloud!');
+                  }
                   // Conflict detected!
                   final resolution = await _handleConflict(
                     descriptor: descriptor,
@@ -471,6 +490,9 @@ class SyncEngine {
 
                   if (resolution == _ConflictAction.skipCloud) {
                     conflictCount++;
+                    if (kDebugMode && descriptor.tableName == 'organizations') {
+                      AppLogger.sync('   ⚠️ Skipping due to conflict resolution');
+                    }
                     continue; // Don't upsert - keep local
                   }
                   // resolution == useCloud - continue to upsert
@@ -478,16 +500,38 @@ class SyncEngine {
               }
             }
 
+            if (kDebugMode && descriptor.tableName == 'organizations') {
+              AppLogger.sync('   ✅ Adding to resolvedRecords: ${localData['cloudId']}');
+            }
             resolvedRecords.add(localData);
+          }
+
+          if (kDebugMode && descriptor.tableName == 'organizations') {
+            AppLogger.sync('   📦 Total resolvedRecords: ${resolvedRecords.length}');
           }
 
           if (resolvedRecords.isNotEmpty) {
             // Process in batches
             for (int i = 0; i < resolvedRecords.length; i += descriptor.pushBatchSize) {
               final batch = resolvedRecords.skip(i).take(descriptor.pushBatchSize).toList();
-              await upsertBatchFromCloud(batch);
+              if (kDebugMode && descriptor.tableName == 'organizations') {
+                AppLogger.sync('   💾 Upserting batch of ${batch.length} records');
+              }
+              try {
+                await upsertBatchFromCloud(batch);
+                if (kDebugMode && descriptor.tableName == 'organizations') {
+                  AppLogger.sync('   ✅ Upsert batch completed');
+                }
+              } catch (upsertError) {
+                if (kDebugMode) {
+                  AppLogger.sync('   ❌ Upsert error: $upsertError');
+                }
+                rethrow;
+              }
             }
             totalPulled = resolvedRecords.length;
+          } else if (kDebugMode && descriptor.tableName == 'organizations') {
+            AppLogger.sync('   ❌ resolvedRecords is empty!');
           }
         }
 
@@ -497,6 +541,7 @@ class SyncEngine {
         final errorMsg = 'Pull attempt $attempt failed: $e';
         if (kDebugMode) {
           AppLogger.sync('   ⚠️ ${descriptor.tableName}: $errorMsg');
+          AppLogger.sync('   📍 Stack trace: ${StackTrace.current}');
         }
 
         if (attempt == maxRetries) {

@@ -1,4 +1,4 @@
-// lib/screens/branches/branches_page.dart
+// lib/branches_page.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -48,6 +48,13 @@ class BranchesPageState extends State<BranchesPage> {
     setState(() => isLoading = true);
 
     try {
+      // Debug: Get all organizations first
+      final allOrgs = await db.organizationsDao.getAllOrganizations();
+      print('🔍 DEBUG: Total organizations in local DB: ${allOrgs.length}');
+      for (final org in allOrgs) {
+        print('   - [${org.type}] ${org.name} (cloudId: ${org.cloudId}, parentCommissaryId: ${org.parentCommissaryId})');
+      }
+
       // Get commissary
       commissary = await db.organizationsDao.getCommissary();
       if (commissary == null) {
@@ -55,20 +62,41 @@ class BranchesPageState extends State<BranchesPage> {
         setState(() => isLoading = false);
         return;
       }
+      print('✅ Commissary found: ${commissary!.name} (cloudId: ${commissary!.cloudId})');
 
       // Get all franchisees under this commissary
       branches = await db.organizationsDao.getFranchisees(commissary!.cloudId);
+      print('🔍 DEBUG: Franchisees found: ${branches.length}');
+      for (final branch in branches) {
+        print('   - ${branch.name} (parentCommissaryId: ${branch.parentCommissaryId})');
+      }
 
       // Get users for each branch
       branchUsers = {};
       for (final branch in branches) {
         final users = await db.usersDao.getUsersByOrganization(branch.id);
         branchUsers[branch.id] = users;
+        print('   - Branch ${branch.name}: ${users.length} users');
       }
 
       setState(() => isLoading = false);
     } catch (e) {
       print('❌ Error loading branches: $e');
+      setState(() => isLoading = false);
+    }
+  }
+
+  /// Force sync and reload data - for debugging
+  Future<void> forceSyncAndReload() async {
+    setState(() => isLoading = true);
+    print('🔄 Force syncing organizations and users...');
+    
+    try {
+      await syncService.performFullSync();
+      print('✅ Sync complete, reloading data...');
+      await loadData();
+    } catch (e) {
+      print('❌ Error during sync: $e');
       setState(() => isLoading = false);
     }
   }

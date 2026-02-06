@@ -27,8 +27,10 @@ final rolesDescriptor = TableSyncDescriptor(
   fieldMappings: [
     FieldMapping.simple('name', 'name'),
     FieldMapping.simple('description', 'description'),
+    FieldMapping.boolean('canViewInventory', 'can_view_inventory'),
     FieldMapping.boolean('canManageInventory', 'can_manage_inventory'),
-    FieldMapping.boolean('canManageUsers', 'can_manage_users'),
+    FieldMapping.boolean('canManageUsers', 'can_manage_employees'),
+    FieldMapping.boolean('canManageRoles', 'can_manage_roles'),
     FieldMapping.boolean('canViewReports', 'can_view_reports'),
     FieldMapping.boolean('canManageBranches', 'can_manage_branches'),
     FieldMapping.boolean('isSystemRole', 'is_system_role'),

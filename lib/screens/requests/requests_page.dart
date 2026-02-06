@@ -6,6 +6,10 @@ import '../../app_globals.dart';
 import '../../database/app_database.dart';
 import '../../services/realtime_stock_request_service.dart';
 import '../../widgets/realtime_status_indicator.dart';
+import '../../utils/design_constants.dart'; // fontAll is defined here
+
+// Button type for empty state
+enum EmptyButtonType { none, add }
 
 class RequestsPage extends StatefulWidget {
   const RequestsPage({super.key});
@@ -19,6 +23,11 @@ class _RequestsPageState extends State<RequestsPage> {
   int? currentUserId;
   int? commissaryId;
   String? _commissaryCloudId;
+  
+  // Missing state variables - added to fix compile errors
+  final TextEditingController _searchController = TextEditingController();
+  int selectedTab = 0;
+  String searchQuery = '';
 
   @override
   void initState() {
@@ -30,6 +39,10 @@ class _RequestsPageState extends State<RequestsPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    // Only detach if we successfully attached (guard against negative reference count)
+    if (_commissaryCloudId != null) {
+      realtimeStockRequestService.detach();
+    }
     super.dispose();
   }
 
@@ -68,11 +81,6 @@ class _RequestsPageState extends State<RequestsPage> {
   }
 
 
-  @override
-  void dispose() {
-    realtimeStockRequestService.detach();
-    super.dispose();
-  }
 
   Future<void> _approveRequest(StockReplenishmentRequest request) async {
     if (currentUserId == null) return;
@@ -284,6 +292,99 @@ class _RequestsPageState extends State<RequestsPage> {
     }
   }
 
+  void setSelectedTab(int index) {
+    setState(() {
+      selectedTab = index;
+    });
+  }
+
+  // Helper method to display empty state
+  Widget emptyTables({
+    required String message,
+    VoidCallback? onAddPressed,
+    EmptyButtonType buttonType = EmptyButtonType.none,
+  }) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
+          const SizedBox(height: 16),
+          Text(
+            message,
+            style: TextStyle(color: Colors.grey[600], fontSize: 16),
+            textAlign: TextAlign.center,
+          ),
+          if (buttonType == EmptyButtonType.add && onAddPressed != null) ...[
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: onAddPressed,
+              icon: const Icon(Icons.add),
+              label: const Text('Add New'),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // Helper method to build a simple table
+  Widget buildUniversalTable({
+    required List<String> headers,
+    required List<List<dynamic>> rows,
+    double smallHeaderWidth = 20,
+    double largeHeaderWidth = 60,
+  }) {
+    return SingleChildScrollView(
+      child: Table(
+        columnWidths: const {
+          0: FlexColumnWidth(1),
+          1: FlexColumnWidth(2),
+          2: FlexColumnWidth(2),
+          3: FlexColumnWidth(1),
+          4: FlexColumnWidth(1), 
+          5: FlexColumnWidth(1),
+          6: FlexColumnWidth(1),
+          7: FlexColumnWidth(1),
+        },
+        border: TableBorder(
+          horizontalInside: BorderSide(color: Colors.grey[300]!, width: 1),
+        ),
+        children: [
+          // Header row
+          TableRow(
+            decoration: BoxDecoration(color: Colors.grey[100]),
+            children: headers.map((h) => Padding(
+              padding: const EdgeInsets.all(12),
+              child: Text(
+                h,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontFamily: fontAll,
+                ),
+              ),
+            )).toList(),
+          ),
+          // Data rows
+          ...rows.map((row) => TableRow(
+            children: row.map((cell) {
+              if (cell is Widget) {
+                return Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: cell,
+                );
+              }
+              return Padding(
+                padding: const EdgeInsets.all(12),
+                child: Text(cell.toString()),
+              );
+            }).toList(),
+          )),
+        ],
+      ),
+    );
+  }
+
   Widget _buildTab(String label, int index) {
     bool active = selectedTab == index;
     return Expanded(
@@ -353,52 +454,36 @@ class _RequestsPageState extends State<RequestsPage> {
           ),
         ],
       ),
-      body: StreamBuilder<List<StockReplenishmentRequest>>(
-        stream: db.stockReplenishmentRequestsDao.watchPendingRequests(commissaryId!),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-
-          if (!snapshot.hasData) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final requests = snapshot.data!;
-
-          if (requests.isEmpty) {
-            return const Center(
-              child: Column(
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            // Tab bar
+            Container(
+              decoration: BoxDecoration(
+                color: Colors.grey[300],
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Row(
                 children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        _buildTab('Pending Requests', 0),
-                        _buildTab('Request History', 1),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.only(
-                          bottomLeft: Radius.circular(12),
-                          bottomRight: Radius.circular(12),
-                        ),
-                      ),
-                      child: selectedTab == 0
-                          ? _buildPendingRequestsTab()
-                          : _buildHistoryTab(),
-                    ),
-                  ),
+                  _buildTab('Pending Requests', 0),
+                  _buildTab('Request History', 1),
                 ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            // Tab content
+            Expanded(
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: selectedTab == 0
+                    ? _buildPendingRequestsTab()
+                    : _buildHistoryTab(),
               ),
             ),
           ],

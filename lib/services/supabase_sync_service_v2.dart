@@ -267,7 +267,7 @@ class SupabaseSyncServiceV2 {
         'address': org.address,
         'phone': org.phone,
         'email': org.email,
-        'parentCommissaryId': null, // Self-reference handled separately
+        'parentCommissaryId': org.parentCommissaryId, // UUID linking franchisee to commissary
         'isActive': org.isActive,
         'createdAt': org.createdAt,
         'updatedAt': org.updatedAt,

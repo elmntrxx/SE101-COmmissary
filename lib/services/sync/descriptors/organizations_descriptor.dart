@@ -22,17 +22,13 @@ final organizationsDescriptor = TableSyncDescriptor(
   // No organization filter - commissary sees all (RLS handles this)
   organizationField: null,
   
-  foreignKeys: [
-    ForeignKeyMapping(
-      localField: 'parentCommissaryId',
-      cloudField: 'parent_commissary_id',
-      referenceTable: 'organizations',
-      required: false, // Self-reference, nullable for commissary itself
-      cloudUsesUuid: true,
-    ),
-  ],
+  // No FK mappings - parentCommissaryId stores cloud UUID directly (TEXT column)
+  foreignKeys: [],
   
   fieldMappings: [
+    // Parent commissary ID is a simple text field storing cloud UUID
+    // Not a FK because local column is TEXT (stores UUID), not an integer reference
+    FieldMapping.simple('parentCommissaryId', 'parent_commissary_id'),
     FieldMapping.simple('name', 'name'),
     FieldMapping.simple('type', 'type'),
     FieldMapping.simple('address', 'address'),
