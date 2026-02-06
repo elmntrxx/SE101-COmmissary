@@ -29,6 +29,9 @@ class _RequestsPageState extends State<RequestsPage> {
   int selectedTab = 0;
   String searchQuery = '';
 
+  // Sort functionality
+  String requestSortOrder = 'newestFirst';
+
   @override
   void initState() {
     super.initState();
@@ -44,6 +47,53 @@ class _RequestsPageState extends State<RequestsPage> {
       realtimeStockRequestService.detach();
     }
     super.dispose();
+  }
+
+  void setRequestSortOrder(String order) {
+    setState(() {
+      requestSortOrder = order;
+    });
+  }
+
+  List<StockReplenishmentRequest> _sortRequests(
+    List<StockReplenishmentRequest> requests,
+  ) {
+    final sorted = List<StockReplenishmentRequest>.from(requests);
+    switch (requestSortOrder) {
+      case 'newestFirst':
+        sorted.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case 'oldestFirst':
+        sorted.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        break;
+      case 'quantityDesc':
+        sorted.sort(
+          (a, b) => b.quantityRequested.compareTo(a.quantityRequested),
+        );
+        break;
+      case 'quantityAsc':
+        sorted.sort(
+          (a, b) => a.quantityRequested.compareTo(b.quantityRequested),
+        );
+        break;
+      case 'approvedFirst':
+        sorted.sort((a, b) {
+          if (a.status == 'approved' && b.status != 'approved') return -1;
+          if (a.status != 'approved' && b.status == 'approved') return 1;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+        break;
+      case 'rejectedFirst':
+        sorted.sort((a, b) {
+          if (a.status == 'rejected' && b.status != 'rejected') return -1;
+          if (a.status != 'rejected' && b.status == 'rejected') return 1;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+        break;
+      default:
+        sorted.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+    return sorted;
   }
 
   Future<void> _loadContext() async {
@@ -509,11 +559,14 @@ class _RequestsPageState extends State<RequestsPage> {
         final allRequests = snapshot.data!;
 
         // Filter requests based on search
-        final requests = allRequests.where((req) {
+        var requests = allRequests.where((req) {
           if (searchQuery.isEmpty) return true;
           return req.id.toString().contains(searchQuery) ||
               req.quantityRequested.toString().contains(searchQuery);
         }).toList();
+
+        // Apply sorting
+        requests = _sortRequests(requests);
 
         if (requests.isEmpty) {
           return emptyTables(
@@ -649,11 +702,14 @@ class _RequestsPageState extends State<RequestsPage> {
             .toList();
 
         // Filter requests based on search
-        final requests = allRequests.where((req) {
+        var requests = allRequests.where((req) {
           if (searchQuery.isEmpty) return true;
           return req.id.toString().contains(searchQuery) ||
               req.status.toLowerCase().contains(searchQuery);
         }).toList();
+
+        // Apply sorting
+        requests = _sortRequests(requests);
 
         if (requests.isEmpty) {
           return emptyTables(

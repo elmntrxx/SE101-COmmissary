@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../services/search_service.dart';
 import '../../utils/design_constants.dart';
 import '../../utils/tables.dart';
+import '../../widgets/filter_widgets.dart';
 import 'branches_page.dart';
 
 class BranchesPageMobile extends StatelessWidget {
@@ -73,20 +75,52 @@ class BranchesPageMobile extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
-                  Container(
-                    height: 42,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                    child: const TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search...',
-                        icon: Icon(Icons.search),
-                        border: InputBorder.none,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: UniversalSearchBar(
+                          controller: state.searchController,
+                          onSearch: state.onSearchChanged,
+                          hintText: state.selectedTab == 0
+                              ? 'Search branches...'
+                              : 'Search admins...',
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                        ),
                       ),
-                    ),
+                      // Sort button for branches tab
+                      if (state.selectedTab == 0)
+                        UniversalFilterButton<String>(
+                          currentValue: state.branchSortOrder,
+                          onSelected: state.setBranchSortOrder,
+                          tooltip: 'Sort',
+                          iconSize: 24,
+                          options: const [
+                            FilterOption.header('SORT BY'),
+                            FilterOption(value: 'nameAsc', label: 'Name (A–Z)'),
+                            FilterOption(value: 'nameDesc', label: 'Name (Z–A)'),
+                            FilterOption.divider(),
+                            FilterOption(value: 'activeFirst', label: 'Active First'),
+                            FilterOption(value: 'inactiveFirst', label: 'Inactive First'),
+                            FilterOption.divider(),
+                            FilterOption(value: 'newestFirst', label: 'Newest First'),
+                            FilterOption(value: 'oldestFirst', label: 'Oldest First'),
+                          ],
+                        ),
+                      // Active only toggle
+                      if (state.selectedTab == 0)
+                        IconButton(
+                          icon: Icon(
+                            Icons.check_circle_outline,
+                            size: 24,
+                            color: state.showActiveOnly ? Colors.green : null,
+                          ),
+                          tooltip: 'Active only',
+                          onPressed: () => state.toggleShowActiveOnly(!state.showActiveOnly),
+                        ),
+                    ],
                   ),
                 ],
               ),
@@ -98,10 +132,7 @@ class BranchesPageMobile extends StatelessWidget {
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Row(
-                  children: [
-                    buildTab('Branches', 0),
-                    buildTab('Admins', 1),
-                  ],
+                  children: [buildTab('Branches', 0), buildTab('Admins', 1)],
                 ),
               ),
               Expanded(
@@ -118,15 +149,16 @@ class BranchesPageMobile extends StatelessWidget {
                   child: state.isLoading
                       ? const Center(child: CircularProgressIndicator())
                       : state.selectedTab == 0
-                          ? _buildBranchesTab()
-                          : _buildAdminsTab(),
+                      ? _buildBranchesTab()
+                      : _buildAdminsTab(),
                 ),
               ),
             ],
           ),
         ),
       ),
-      floatingActionButton: (!state.isLoading &&
+      floatingActionButton:
+          (!state.isLoading &&
               ((state.selectedTab == 0 && state.branches.isNotEmpty) ||
                   (state.selectedTab == 1 && state.branches.isNotEmpty)))
           ? FloatingActionButton(
@@ -151,6 +183,16 @@ class BranchesPageMobile extends StatelessWidget {
       );
     }
 
+    final filteredBranches = state.filteredBranches;
+    if (filteredBranches.isEmpty) {
+      return const Center(
+        child: Text(
+          'No branches match your search',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
     return buildUniversalTable(
       headers: [
         'Branch Name',
@@ -161,7 +203,7 @@ class BranchesPageMobile extends StatelessWidget {
         'Status',
         '',
       ],
-      rows: state.branches.map((branch) {
+      rows: filteredBranches.map((branch) {
         final users = state.branchUsers[branch.id] ?? [];
         return [
           Text(branch.name),
@@ -172,7 +214,9 @@ class BranchesPageMobile extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: branch.isActive ? Colors.green.shade100 : Colors.red.shade100,
+              color: branch.isActive
+                  ? Colors.green.shade100
+                  : Colors.red.shade100,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -231,14 +275,7 @@ class BranchesPageMobile extends StatelessWidget {
         }
 
         return buildUniversalTable(
-          headers: [
-            'Name',
-            'Email',
-            'Phone',
-            'Branch',
-            'Status',
-            '',
-          ],
+          headers: ['Name', 'Email', 'Phone', 'Branch', 'Status', ''],
           rows: admins.map((data) {
             final user = data['user'];
             final branch = data['branch'];
@@ -254,16 +291,15 @@ class BranchesPageMobile extends StatelessWidget {
                 ),
                 child: Text(
                   branch.name,
-                  style: TextStyle(
-                    color: Colors.blue.shade700,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.blue.shade700, fontSize: 12),
                 ),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: user.isActive ? Colors.green.shade100 : Colors.red.shade100,
+                  color: user.isActive
+                      ? Colors.green.shade100
+                      : Colors.red.shade100,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(

@@ -6,6 +6,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:uuid/uuid.dart';
 import '../../app_globals.dart';
 import '../../database/app_database.dart';
+import '../../services/search_service.dart';
 import '../../services/supabase_auth_service.dart';
 import '../../utils/design_constants.dart';
 import 'branches_page_desktop.dart';
@@ -31,10 +32,95 @@ class BranchesPageState extends State<BranchesPage> {
   bool isLoading = true;
   int selectedTab = 0; // 0 = Branches, 1 = Branch Admins
 
+  // Search functionality
+  final TextEditingController searchController = TextEditingController();
+  String searchQuery = '';
+
+  // Sort functionality
+  String branchSortOrder = 'nameAsc';
+  String adminSortOrder = 'nameAsc';
+  bool showActiveOnly = false;
+
   final _uuid = const Uuid();
 
   void setSelectedTab(int index) {
     setState(() => selectedTab = index);
+  }
+
+  void onSearchChanged(String query) {
+    setState(() {
+      searchQuery = query;
+    });
+  }
+
+  void setBranchSortOrder(String order) {
+    setState(() {
+      branchSortOrder = order;
+    });
+  }
+
+  void setAdminSortOrder(String order) {
+    setState(() {
+      adminSortOrder = order;
+    });
+  }
+
+  void toggleShowActiveOnly(bool value) {
+    setState(() {
+      showActiveOnly = value;
+    });
+  }
+
+  /// Get filtered and sorted branches based on search query and sort order
+  List<Organization> get filteredBranches {
+    var list = branches.toList();
+    
+    // Apply search filter
+    if (searchQuery.isNotEmpty) {
+      list = SearchService.filter(
+        list,
+        searchQuery,
+        (branch) => [branch.name, branch.address, branch.email, branch.phone],
+      );
+    }
+    
+    // Apply active filter
+    if (showActiveOnly) {
+      list = list.where((b) => b.isActive).toList();
+    }
+    
+    // Apply sorting
+    list.sort((a, b) {
+      switch (branchSortOrder) {
+        case 'nameAsc':
+          return a.name.compareTo(b.name);
+        case 'nameDesc':
+          return b.name.compareTo(a.name);
+        case 'activeFirst':
+          return (b.isActive ? 1 : 0).compareTo(a.isActive ? 1 : 0);
+        case 'inactiveFirst':
+          return (a.isActive ? 1 : 0).compareTo(b.isActive ? 1 : 0);
+        case 'newestFirst':
+          return b.createdAt.compareTo(a.createdAt);
+        case 'oldestFirst':
+          return a.createdAt.compareTo(b.createdAt);
+        default:
+          return a.name.compareTo(b.name);
+      }
+    });
+    
+    return list;
+  }
+
+  /// Get filtered users based on search query
+  List<User> getFilteredUsersForBranch(int branchId) {
+    final users = branchUsers[branchId] ?? [];
+    if (searchQuery.isEmpty) return users;
+    return SearchService.filter(
+      users,
+      searchQuery,
+      (user) => [user.username, user.email, user.phone],
+    );
   }
 
   @override
@@ -42,6 +128,12 @@ class BranchesPageState extends State<BranchesPage> {
     super.initState();
     db = database;
     loadData();
+  }
+
+  @override
+  void dispose() {
+    searchController.dispose();
+    super.dispose();
   }
 
   Future<void> loadData() async {
@@ -158,9 +250,7 @@ class BranchesPageState extends State<BranchesPage> {
                       prefixIcon: Icon(Icons.phone),
                     ),
                     keyboardType: TextInputType.phone,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                    ],
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -243,9 +333,9 @@ class BranchesPageState extends State<BranchesPage> {
 
       await loadData();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create branch: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to create branch: $e')));
     }
   }
 
@@ -324,9 +414,7 @@ class BranchesPageState extends State<BranchesPage> {
                         prefixIcon: Icon(Icons.phone),
                       ),
                       keyboardType: TextInputType.phone,
-                      inputFormatters: [
-                        FilteringTextInputFormatter.digitsOnly,
-                      ],
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -351,7 +439,10 @@ class BranchesPageState extends State<BranchesPage> {
                           Expanded(
                             child: Text(
                               'This admin will only be able to access data for their assigned branch.',
-                              style: TextStyle(fontSize: 12, color: Colors.blue),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.blue,
+                              ),
                             ),
                           ),
                         ],
@@ -377,7 +468,9 @@ class BranchesPageState extends State<BranchesPage> {
                                 passwordController.text.isEmpty) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Please fill all required fields'),
+                                  content: Text(
+                                    'Please fill all required fields',
+                                  ),
                                 ),
                               );
                               return;
@@ -437,28 +530,32 @@ class BranchesPageState extends State<BranchesPage> {
       }
 
       // 2. Create user in local database with auth_user_id
-      await db.into(db.users).insert(
-        UsersCompanion.insert(
-          cloudId: _uuid.v4(),
-          username: name,
-          email: email,
-          phone: Value(phone),
-          passwordHash: AppDatabase.hashPassword(password),
-          organizationId: branch.id,
-          roleId: branchAdminRole.id,
-          authUserId: Value(authUserId),
-        ),
-      );
+      await db
+          .into(db.users)
+          .insert(
+            UsersCompanion.insert(
+              cloudId: _uuid.v4(),
+              username: name,
+              email: email,
+              phone: Value(phone),
+              passwordHash: AppDatabase.hashPassword(password),
+              organizationId: branch.id,
+              roleId: branchAdminRole.id,
+              authUserId: Value(authUserId),
+            ),
+          );
 
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Branch admin "$name" created for ${branch.name}')),
+        SnackBar(
+          content: Text('Branch admin "$name" created for ${branch.name}'),
+        ),
       );
 
       await loadData();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to create admin: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to create admin: $e')));
     }
   }
 
@@ -490,14 +587,14 @@ class BranchesPageState extends State<BranchesPage> {
     if (shouldDelete == true) {
       try {
         // Implementation: Delete branch
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${branch.name} deleted')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${branch.name} deleted')));
         await loadData();
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting branch: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error deleting branch: $e')));
       }
     }
   }
@@ -526,14 +623,14 @@ class BranchesPageState extends State<BranchesPage> {
     if (shouldDelete == true) {
       try {
         // Implementation: Delete admin
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${user.username} deleted')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('${user.username} deleted')));
         await loadData();
       } catch (e) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error deleting admin: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error deleting admin: $e')));
       }
     }
   }
@@ -547,10 +644,7 @@ class BranchesPageState extends State<BranchesPage> {
     for (final branch in branches) {
       final users = branchUsers[branch.id] ?? [];
       for (final user in users) {
-        rows.add({
-          'user': user,
-          'branch': branch,
-        });
+        rows.add({'user': user, 'branch': branch});
       }
     }
     return rows;

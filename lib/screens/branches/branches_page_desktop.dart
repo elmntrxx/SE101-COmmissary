@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import '../../services/search_service.dart';
 import '../../utils/design_constants.dart';
 import '../../utils/tables.dart';
+import '../../widgets/filter_widgets.dart';
 import 'branches_page.dart';
 
 class BranchesPageDesktop extends StatelessWidget {
@@ -60,20 +62,49 @@ class BranchesPageDesktop extends StatelessWidget {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Container(
+                  child: UniversalSearchBar(
+                    controller: state.searchController,
+                    onSearch: state.onSearchChanged,
+                    hintText: state.selectedTab == 0
+                        ? 'Search branches...'
+                        : 'Search admins...',
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(30),
                     ),
-                    child: const TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search...',
-                        prefixIcon: Icon(Icons.search),
-                        border: InputBorder.none,
-                      ),
-                    ),
                   ),
                 ),
+                // Sort button for branches tab
+                if (state.selectedTab == 0)
+                  UniversalFilterButton<String>(
+                    currentValue: state.branchSortOrder,
+                    onSelected: state.setBranchSortOrder,
+                    tooltip: 'Sort branches',
+                    options: const [
+                      FilterOption.header('SORT BY NAME'),
+                      FilterOption(value: 'nameAsc', label: 'Name (A–Z)', icon: Icons.sort_by_alpha),
+                      FilterOption(value: 'nameDesc', label: 'Name (Z–A)', icon: Icons.sort_by_alpha),
+                      FilterOption.divider(),
+                      FilterOption.header('SORT BY STATUS'),
+                      FilterOption(value: 'activeFirst', label: 'Active First', icon: Icons.check_circle),
+                      FilterOption(value: 'inactiveFirst', label: 'Inactive First', icon: Icons.cancel),
+                      FilterOption.divider(),
+                      FilterOption.header('SORT BY DATE'),
+                      FilterOption(value: 'newestFirst', label: 'Newest First', icon: Icons.schedule),
+                      FilterOption(value: 'oldestFirst', label: 'Oldest First', icon: Icons.history),
+                    ],
+                  ),
+                // Active only toggle
+                if (state.selectedTab == 0)
+                  IconButton(
+                    icon: Icon(
+                      Icons.check_circle_outline,
+                      size: 28,
+                      color: state.showActiveOnly ? Colors.green : null,
+                    ),
+                    tooltip: 'Show active only',
+                    onPressed: () => state.toggleShowActiveOnly(!state.showActiveOnly),
+                  ),
                 IconButton(
                   icon: const Icon(Icons.sync, size: 35),
                   tooltip: 'Force Sync',
@@ -115,8 +146,8 @@ class BranchesPageDesktop extends StatelessWidget {
                       child: state.isLoading
                           ? const Center(child: CircularProgressIndicator())
                           : state.selectedTab == 0
-                              ? _buildBranchesTab()
-                              : _buildAdminsTab(),
+                          ? _buildBranchesTab()
+                          : _buildAdminsTab(),
                     ),
                   ),
                 ],
@@ -125,7 +156,8 @@ class BranchesPageDesktop extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: (!state.isLoading &&
+      floatingActionButton:
+          (!state.isLoading &&
               ((state.selectedTab == 0 && state.branches.isNotEmpty) ||
                   (state.selectedTab == 1 && state.branches.isNotEmpty)))
           ? Container(
@@ -153,6 +185,16 @@ class BranchesPageDesktop extends StatelessWidget {
       );
     }
 
+    final filteredBranches = state.filteredBranches;
+    if (filteredBranches.isEmpty) {
+      return const Center(
+        child: Text(
+          'No branches match your search',
+          style: TextStyle(color: Colors.grey),
+        ),
+      );
+    }
+
     return buildUniversalTable(
       headers: [
         'Branch Name',
@@ -163,7 +205,7 @@ class BranchesPageDesktop extends StatelessWidget {
         'Status',
         '',
       ],
-      rows: state.branches.map((branch) {
+      rows: filteredBranches.map((branch) {
         final users = state.branchUsers[branch.id] ?? [];
         return [
           Text(branch.name),
@@ -174,7 +216,9 @@ class BranchesPageDesktop extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: branch.isActive ? Colors.green.shade100 : Colors.red.shade100,
+              color: branch.isActive
+                  ? Colors.green.shade100
+                  : Colors.red.shade100,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
@@ -233,14 +277,7 @@ class BranchesPageDesktop extends StatelessWidget {
         }
 
         return buildUniversalTable(
-          headers: [
-            'Name',
-            'Email',
-            'Phone',
-            'Branch',
-            'Status',
-            '',
-          ],
+          headers: ['Name', 'Email', 'Phone', 'Branch', 'Status', ''],
           rows: admins.map((data) {
             final user = data['user'];
             final branch = data['branch'];
@@ -262,7 +299,9 @@ class BranchesPageDesktop extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: user.isActive ? Colors.green.shade100 : Colors.red.shade100,
+                  color: user.isActive
+                      ? Colors.green.shade100
+                      : Colors.red.shade100,
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
