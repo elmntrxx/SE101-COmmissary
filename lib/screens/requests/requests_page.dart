@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../app_globals.dart';
 import '../../database/app_database.dart';
+import '../../services/search_service.dart';
 import '../../utils/design_constants.dart';
 import '../../utils/tables.dart';
+import '../../widgets/filter_widgets.dart';
 
 class RequestsPage extends StatefulWidget {
   const RequestsPage({super.key});
@@ -22,6 +24,9 @@ class _RequestsPageState extends State<RequestsPage> {
   String searchQuery = '';
   final TextEditingController _searchController = TextEditingController();
 
+  // Sort functionality
+  String requestSortOrder = 'newestFirst';
+
   @override
   void initState() {
     super.initState();
@@ -33,6 +38,53 @@ class _RequestsPageState extends State<RequestsPage> {
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  void setRequestSortOrder(String order) {
+    setState(() {
+      requestSortOrder = order;
+    });
+  }
+
+  List<StockReplenishmentRequest> _sortRequests(
+    List<StockReplenishmentRequest> requests,
+  ) {
+    final sorted = List<StockReplenishmentRequest>.from(requests);
+    switch (requestSortOrder) {
+      case 'newestFirst':
+        sorted.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+        break;
+      case 'oldestFirst':
+        sorted.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+        break;
+      case 'quantityDesc':
+        sorted.sort(
+          (a, b) => b.quantityRequested.compareTo(a.quantityRequested),
+        );
+        break;
+      case 'quantityAsc':
+        sorted.sort(
+          (a, b) => a.quantityRequested.compareTo(b.quantityRequested),
+        );
+        break;
+      case 'approvedFirst':
+        sorted.sort((a, b) {
+          if (a.status == 'approved' && b.status != 'approved') return -1;
+          if (a.status != 'approved' && b.status == 'approved') return 1;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+        break;
+      case 'rejectedFirst':
+        sorted.sort((a, b) {
+          if (a.status == 'rejected' && b.status != 'rejected') return -1;
+          if (a.status != 'rejected' && b.status == 'rejected') return 1;
+          return b.createdAt.compareTo(a.createdAt);
+        });
+        break;
+      default:
+        sorted.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    }
+    return sorted;
   }
 
   Future<void> _loadContext() async {
@@ -324,25 +376,27 @@ class _RequestsPageState extends State<RequestsPage> {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Container(
+                  child: UniversalSearchBar(
+                    controller: _searchController,
+                    onSearch: (value) {
+                      setState(() {
+                        searchQuery = value.toLowerCase();
+                      });
+                    },
+                    hintText: 'Search requests...',
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(30),
                     ),
-                    child: TextField(
-                      controller: _searchController,
-                      onChanged: (value) {
-                        setState(() {
-                          searchQuery = value.toLowerCase();
-                        });
-                      },
-                      decoration: const InputDecoration(
-                        hintText: 'Search...',
-                        prefixIcon: Icon(Icons.search),
-                        border: InputBorder.none,
-                      ),
-                    ),
                   ),
+                ),
+                const SizedBox(width: 8),
+                UniversalFilterButton<String>(
+                  currentValue: requestSortOrder,
+                  icon: Icons.sort,
+                  tooltip: 'Sort requests',
+                  onSelected: setRequestSortOrder,
+                  options: RequestSortOptions.all,
                 ),
                 IconButton(
                   icon: const Icon(Icons.refresh, size: 30),
@@ -416,11 +470,14 @@ class _RequestsPageState extends State<RequestsPage> {
         final allRequests = snapshot.data!;
 
         // Filter requests based on search
-        final requests = allRequests.where((req) {
+        var requests = allRequests.where((req) {
           if (searchQuery.isEmpty) return true;
           return req.id.toString().contains(searchQuery) ||
               req.quantityRequested.toString().contains(searchQuery);
         }).toList();
+
+        // Apply sorting
+        requests = _sortRequests(requests);
 
         if (requests.isEmpty) {
           return emptyTables(
@@ -556,11 +613,14 @@ class _RequestsPageState extends State<RequestsPage> {
             .toList();
 
         // Filter requests based on search
-        final requests = allRequests.where((req) {
+        var requests = allRequests.where((req) {
           if (searchQuery.isEmpty) return true;
           return req.id.toString().contains(searchQuery) ||
               req.status.toLowerCase().contains(searchQuery);
         }).toList();
+
+        // Apply sorting
+        requests = _sortRequests(requests);
 
         if (requests.isEmpty) {
           return emptyTables(

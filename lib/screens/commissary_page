@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:drift/drift.dart' as drift; // <-- alias Drift
 import 'package:commissary_app/utils/design_constants.dart';
+import 'package:commissary_app/services/search_service.dart';
 import '../../../data/local/app_database.dart';
 import '../../../data/database_provider.dart';
 
@@ -19,6 +20,16 @@ class _CommissaryPageState extends State<CommissaryPage> {
   int selectedTab = 0; // 0 = Ingredients, 1 = Create Items, 2 = Deliveries
   List<Role> roles = [];
   String? selectedRole;
+
+  // Search functionality
+  final TextEditingController _searchController = TextEditingController();
+  String _searchQuery = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
 
   @override
 void initState() {
@@ -273,18 +284,18 @@ Future<void> _loadItems() async {
                     style: TextStyle(fontSize: 28, fontFamily: fontAll)),
                 const SizedBox(width: 20),
                 Expanded(
-                  child: Container(
+                  child: UniversalSearchBar(
+                    controller: _searchController,
+                    onSearch: (query) {
+                      setState(() {
+                        _searchQuery = query;
+                      });
+                    },
+                    hintText: "Search ingredients...",
                     height: 40,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(30),
-                    ),
-                    child: const TextField(
-                      decoration: InputDecoration(
-                        hintText: "Search ingredients...",
-                        prefixIcon: Icon(Icons.search),
-                        border: InputBorder.none,
-                      ),
                     ),
                   ),
                 ),

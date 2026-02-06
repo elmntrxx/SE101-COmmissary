@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
+import '../../database/daos/ingredients_dao.dart';
+import '../../database/daos/items_dao.dart';
+import '../../services/search_service.dart';
 import '../../utils/design_constants.dart';
+import '../../widgets/filter_widgets.dart';
 import 'inventory_management_page.dart';
 import 'ingredients_tab.dart';
 import 'products_tab.dart';
@@ -61,19 +65,86 @@ class InventoryManagementPageDesktop extends StatelessWidget {
                 ),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Container(
+                  child: UniversalSearchBar(
+                    controller: state.searchController,
+                    onSearch: state.onSearchChanged,
+                    hintText: state.selectedTab == 0
+                        ? 'Search ingredients...'
+                        : 'Search products...',
                     decoration: BoxDecoration(
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(30),
                     ),
-                    child: const TextField(
-                      decoration: InputDecoration(
-                        hintText: 'Search...',
-                        prefixIcon: Icon(Icons.search),
-                        border: InputBorder.none,
-                      ),
-                    ),
                   ),
+                ),
+                // Filter/Sort button - changes based on selected tab
+                if (state.selectedTab == 0)
+                  UniversalFilterButton<IngredientSortOrder>(
+                    currentValue: state.ingredientSortOrder,
+                    onSelected: state.setIngredientSortOrder,
+                    tooltip: 'Sort ingredients',
+                    options: const [
+                      FilterOption.header('SORT BY NAME'),
+                      FilterOption(value: IngredientSortOrder.nameAsc, label: 'Name (A–Z)', icon: Icons.sort_by_alpha),
+                      FilterOption(value: IngredientSortOrder.nameDesc, label: 'Name (Z–A)', icon: Icons.sort_by_alpha),
+                      FilterOption.divider(),
+                      FilterOption.header('SORT BY STOCK'),
+                      FilterOption(value: IngredientSortOrder.stockAsc, label: 'Stock (Low → High)', icon: Icons.inventory_2),
+                      FilterOption(value: IngredientSortOrder.stockDesc, label: 'Stock (High → Low)', icon: Icons.inventory_2),
+                      FilterOption.divider(),
+                      FilterOption.header('SORT BY COST'),
+                      FilterOption(value: IngredientSortOrder.costAsc, label: 'Cost (Low → High)', icon: Icons.attach_money),
+                      FilterOption(value: IngredientSortOrder.costDesc, label: 'Cost (High → Low)', icon: Icons.attach_money),
+                      FilterOption.divider(),
+                      FilterOption.header('SORT BY DATE'),
+                      FilterOption(value: IngredientSortOrder.newestFirst, label: 'Newest First', icon: Icons.schedule),
+                      FilterOption(value: IngredientSortOrder.oldestFirst, label: 'Oldest First', icon: Icons.history),
+                    ],
+                  )
+                else
+                  UniversalFilterButton<ItemSortOrder>(
+                    currentValue: state.productSortOrder,
+                    onSelected: state.setProductSortOrder,
+                    tooltip: 'Sort products',
+                    options: const [
+                      FilterOption.header('SORT BY NAME'),
+                      FilterOption(value: ItemSortOrder.nameAsc, label: 'Name (A–Z)', icon: Icons.sort_by_alpha),
+                      FilterOption(value: ItemSortOrder.nameDesc, label: 'Name (Z–A)', icon: Icons.sort_by_alpha),
+                      FilterOption.divider(),
+                      FilterOption.header('SORT BY STOCK'),
+                      FilterOption(value: ItemSortOrder.stockAsc, label: 'Stock (Low → High)', icon: Icons.inventory_2),
+                      FilterOption(value: ItemSortOrder.stockDesc, label: 'Stock (High → Low)', icon: Icons.inventory_2),
+                      FilterOption.divider(),
+                      FilterOption.header('SORT BY PRICE'),
+                      FilterOption(value: ItemSortOrder.priceAsc, label: 'Price (Low → High)', icon: Icons.sell),
+                      FilterOption(value: ItemSortOrder.priceDesc, label: 'Price (High → Low)', icon: Icons.sell),
+                      FilterOption.divider(),
+                      FilterOption.header('SORT BY COST'),
+                      FilterOption(value: ItemSortOrder.costAsc, label: 'Cost (Low → High)', icon: Icons.attach_money),
+                      FilterOption(value: ItemSortOrder.costDesc, label: 'Cost (High → Low)', icon: Icons.attach_money),
+                      FilterOption.divider(),
+                      FilterOption.header('SORT BY DATE'),
+                      FilterOption(value: ItemSortOrder.newestFirst, label: 'Newest First', icon: Icons.schedule),
+                      FilterOption(value: ItemSortOrder.oldestFirst, label: 'Oldest First', icon: Icons.history),
+                    ],
+                  ),
+                // Low Stock toggle
+                IconButton(
+                  icon: Icon(
+                    Icons.warning_amber_rounded,
+                    size: 28,
+                    color: (state.selectedTab == 0 ? state.showLowStockIngredientsOnly : state.showLowStockProductsOnly)
+                        ? Colors.orange
+                        : null,
+                  ),
+                  tooltip: 'Show low stock only',
+                  onPressed: () {
+                    if (state.selectedTab == 0) {
+                      state.toggleLowStockIngredients(!state.showLowStockIngredientsOnly);
+                    } else {
+                      state.toggleLowStockProducts(!state.showLowStockProductsOnly);
+                    }
+                  },
                 ),
                 IconButton(
                   icon: const Icon(Icons.help_outline, size: 35),
@@ -116,10 +187,17 @@ class InventoryManagementPageDesktop extends StatelessWidget {
                           ? IngredientsTab(
                               commissaryId: state.widget.commissaryId,
                               onItemsChanged: state.setHasIngredients,
+                              searchQuery: state.searchQuery,
+                              sortOrder: state.ingredientSortOrder,
+                              showLowStockOnly: state.showLowStockIngredientsOnly,
                             )
                           : ProductsTab(
                               organizationId: state.widget.organizationId,
                               onItemsChanged: state.setHasProducts,
+                              searchQuery: state.searchQuery,
+                              sortOrder: state.productSortOrder,
+                              showLowStockOnly: state.showLowStockProductsOnly,
+                              selectedCategoryId: state.selectedCategoryId,
                             ),
                     ),
                   ),
@@ -129,7 +207,8 @@ class InventoryManagementPageDesktop extends StatelessWidget {
           ],
         ),
       ),
-      floatingActionButton: ((state.selectedTab == 0 && state.hasIngredients) ||
+      floatingActionButton:
+          ((state.selectedTab == 0 && state.hasIngredients) ||
               (state.selectedTab == 1 && state.hasProducts))
           ? Container(
               margin: const EdgeInsets.only(bottom: 20),
