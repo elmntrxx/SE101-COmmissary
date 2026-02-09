@@ -4,25 +4,26 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../app_globals.dart';
 import '../../database/app_database.dart';
-import '../../services/search_service.dart';
 import '../../utils/design_constants.dart';
-import '../../utils/tables.dart';
-import '../../widgets/filter_widgets.dart';
+
+// Import separated UI files
+import 'requests_page_mobile.dart';
+import 'requests_page_desktop.dart';
 
 class RequestsPage extends StatefulWidget {
   const RequestsPage({super.key});
 
   @override
-  State<RequestsPage> createState() => _RequestsPageState();
+  State<RequestsPage> createState() => RequestsPageState();
 }
 
-class _RequestsPageState extends State<RequestsPage> {
+class RequestsPageState extends State<RequestsPage> {
   late AppDatabase db;
   int? currentUserId;
   int? commissaryId;
   int selectedTab = 0;
   String searchQuery = '';
-  final TextEditingController _searchController = TextEditingController();
+  final TextEditingController searchController = TextEditingController();
 
   // Sort functionality
   String requestSortOrder = 'newestFirst';
@@ -36,8 +37,18 @@ class _RequestsPageState extends State<RequestsPage> {
 
   @override
   void dispose() {
-    _searchController.dispose();
+    searchController.dispose();
     super.dispose();
+  }
+
+  void setSearchQuery(String query) {
+    setState(() {
+      searchQuery = query;
+    });
+  }
+
+  void refresh() {
+    setState(() {});
   }
 
   void setRequestSortOrder(String order) {
@@ -46,7 +57,8 @@ class _RequestsPageState extends State<RequestsPage> {
     });
   }
 
-  List<StockReplenishmentRequest> _sortRequests(
+  // Public method for scaffolds to use
+  List<StockReplenishmentRequest> sortRequests(
     List<StockReplenishmentRequest> requests,
   ) {
     final sorted = List<StockReplenishmentRequest>.from(requests);
@@ -316,42 +328,6 @@ class _RequestsPageState extends State<RequestsPage> {
     }
   }
 
-  Widget _buildTab(String label, int index) {
-    bool active = selectedTab == index;
-    return Expanded(
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: () => setSelectedTab(index),
-          child: Container(
-            height: 45,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: active ? Colors.white : Colors.grey[300],
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-              boxShadow: active
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : [],
-            ),
-            child: Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (commissaryId == null) {
@@ -361,163 +337,19 @@ class _RequestsPageState extends State<RequestsPage> {
       );
     }
 
-    return Scaffold(
-      backgroundColor: const Color.fromRGBO(238, 238, 238, 1),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Header row with title, search bar and notification
-            Row(
-              children: [
-                const Text(
-                  'Stock Replenishment',
-                  style: TextStyle(fontSize: 30, fontFamily: fontAll),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: UniversalSearchBar(
-                    controller: _searchController,
-                    onSearch: (value) {
-                      setState(() {
-                        searchQuery = value.toLowerCase();
-                      });
-                    },
-                    hintText: 'Search requests...',
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                UniversalFilterButton<String>(
-                  currentValue: requestSortOrder,
-                  icon: Icons.sort,
-                  tooltip: 'Sort requests',
-                  onSelected: setRequestSortOrder,
-                  options: RequestSortOptions.all,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.refresh, size: 30),
-                  tooltip: 'Refresh',
-                  onPressed: () {
-                    setState(() {});
-                  },
-                ),
-                IconButton(
-                  icon: const Icon(Icons.notifications_outlined, size: 35),
-                  onPressed: () {},
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Tab section
-            Expanded(
-              child: Column(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey[300],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      children: [
-                        _buildTab('Pending Requests', 0),
-                        _buildTab('Request History', 1),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: const BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.only(
-                          bottomLeft: Radius.circular(12),
-                          bottomRight: Radius.circular(12),
-                        ),
-                      ),
-                      child: selectedTab == 0
-                          ? _buildPendingRequestsTab()
-                          : _buildHistoryTab(),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    // Determine if we're on mobile or desktop based on screen width
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 800;
+
+    if (isMobile) {
+      return RequestsPageMobile(state: this);
+    } else {
+      return RequestsPageDesktop(state: this);
+    }
   }
 
-  Widget _buildPendingRequestsTab() {
-    return StreamBuilder<List<StockReplenishmentRequest>>(
-      stream: db.stockReplenishmentRequestsDao.watchPendingRequests(
-        commissaryId!,
-      ),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final allRequests = snapshot.data!;
-
-        // Filter requests based on search
-        var requests = allRequests.where((req) {
-          if (searchQuery.isEmpty) return true;
-          return req.id.toString().contains(searchQuery) ||
-              req.quantityRequested.toString().contains(searchQuery);
-        }).toList();
-
-        // Apply sorting
-        requests = _sortRequests(requests);
-
-        if (requests.isEmpty) {
-          return emptyTables(
-            message: allRequests.isEmpty
-                ? 'No pending requests. All caught up!'
-                : 'No requests match your search.',
-            onAddPressed: null,
-            buttonType: EmptyButtonType.none,
-          );
-        }
-
-        return FutureBuilder<List<List<dynamic>>>(
-          future: _buildRequestRows(requests),
-          builder: (context, rowSnapshot) {
-            if (!rowSnapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            return buildUniversalTable(
-              headers: [
-                'Request ID',
-                'Branch',
-                'Item',
-                'Qty Requested',
-                'Stock Available',
-                'Date',
-                'Status',
-                '',
-              ],
-              rows: rowSnapshot.data!,
-              smallHeaderWidth: 20,
-              largeHeaderWidth: 60,
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<List<List<dynamic>>> _buildRequestRows(
+  // Public method for scaffolds to build request rows
+  Future<List<List<dynamic>>> buildRequestRows(
     List<StockReplenishmentRequest> requests,
   ) async {
     List<List<dynamic>> rows = [];
@@ -595,72 +427,8 @@ class _RequestsPageState extends State<RequestsPage> {
     return rows;
   }
 
-  Widget _buildHistoryTab() {
-    return StreamBuilder<List<StockReplenishmentRequest>>(
-      stream: db.stockReplenishmentRequestsDao.watchAllRequests(commissaryId!),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        // Filter to show only non-pending (approved/rejected) requests
-        final allRequests = snapshot.data!
-            .where((r) => r.status != 'pending')
-            .toList();
-
-        // Filter requests based on search
-        var requests = allRequests.where((req) {
-          if (searchQuery.isEmpty) return true;
-          return req.id.toString().contains(searchQuery) ||
-              req.status.toLowerCase().contains(searchQuery);
-        }).toList();
-
-        // Apply sorting
-        requests = _sortRequests(requests);
-
-        if (requests.isEmpty) {
-          return emptyTables(
-            message: allRequests.isEmpty
-                ? 'No request history yet.'
-                : 'No requests match your search.',
-            onAddPressed: null,
-            buttonType: EmptyButtonType.none,
-          );
-        }
-
-        return FutureBuilder<List<List<dynamic>>>(
-          future: _buildHistoryRows(requests),
-          builder: (context, rowSnapshot) {
-            if (!rowSnapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            return buildUniversalTable(
-              headers: [
-                'Request ID',
-                'Branch',
-                'Item',
-                'Qty Requested',
-                'Date',
-                'Reviewed',
-                'Status',
-                '',
-              ],
-              rows: rowSnapshot.data!,
-              smallHeaderWidth: 20,
-              largeHeaderWidth: 60,
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<List<List<dynamic>>> _buildHistoryRows(
+  // Public method for scaffolds to build history rows
+  Future<List<List<dynamic>>> buildHistoryRows(
     List<StockReplenishmentRequest> requests,
   ) async {
     List<List<dynamic>> rows = [];

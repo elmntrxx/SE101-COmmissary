@@ -1,4 +1,4 @@
-// lib/widgets/connection_status_indicator.dart
+﻿// lib/widgets/connection_status_indicator.dart
 import 'package:flutter/material.dart';
 import '../utils/sync_status.dart';
 
@@ -6,38 +6,88 @@ import '../utils/sync_status.dart';
 class ConnectionStatusIndicator extends StatelessWidget {
   final bool isOnline;
   final SyncStatus syncStatus;
+  final VoidCallback? onSyncPressed;
 
   const ConnectionStatusIndicator({
     super.key,
     required this.isOnline,
-    required this.syncStatus, required Future<void> Function() onSyncPressed,
+    required this.syncStatus,
+    this.onSyncPressed,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: _getBackgroundColor().withOpacity(0.2),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _getBackgroundColor()),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _buildStatusIcon(),
-          const SizedBox(width: 4),
-          Text(
-            _getStatusText(),
-            style: TextStyle(
-              color: _getBackgroundColor(),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
+    final isSyncing = syncStatus == SyncStatus.syncing;
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Tooltip(
+          message: _getTooltipMessage(),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: _getBackgroundColor().withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _getBackgroundColor()),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildStatusIcon(),
+                const SizedBox(width: 4),
+                Text(
+                  _getStatusText(),
+                  style: TextStyle(
+                    color: _getBackgroundColor(),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (onSyncPressed != null && isOnline) ...[
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: IconButton(
+              padding: EdgeInsets.zero,
+              iconSize: 16,
+              tooltip: isSyncing ? 'Syncing...' : 'Sync now',
+              onPressed: isSyncing ? null : onSyncPressed,
+              icon: isSyncing
+                  ? const SizedBox(
+                      width: 14,
+                      height: 14,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.sync),
             ),
           ),
         ],
-      ),
+      ],
     );
+  }
+
+  String _getTooltipMessage() {
+    if (!isOnline) {
+      return 'You are offline. Changes will sync when online.';
+    }
+
+    switch (syncStatus) {
+      case SyncStatus.syncing:
+        return 'Syncing data with the server...';
+      case SyncStatus.synced:
+        return 'All data is up to date.';
+      case SyncStatus.pendingSync:
+        return 'Changes pending sync. Tap to sync now.';
+      case SyncStatus.error:
+        return 'Sync failed. Will retry automatically.';
+      case SyncStatus.offline:
+        return 'You are offline.';
+    }
   }
 
   Widget _buildStatusIcon() {
@@ -47,10 +97,13 @@ class ConnectionStatusIndicator extends StatelessWidget {
 
     switch (syncStatus) {
       case SyncStatus.syncing:
-        return const SizedBox(
+        return SizedBox(
           width: 14,
           height: 14,
-          child: CircularProgressIndicator(strokeWidth: 2),
+          child: CircularProgressIndicator(
+            strokeWidth: 2,
+            color: _getBackgroundColor(),
+          ),
         );
       case SyncStatus.synced:
         return const Icon(Icons.cloud_done, size: 16, color: Colors.green);

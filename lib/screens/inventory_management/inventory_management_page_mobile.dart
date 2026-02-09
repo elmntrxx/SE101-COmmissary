@@ -25,7 +25,7 @@ class InventoryManagementPageMobile extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: active ? Colors.white : Colors.grey[300],
-              borderRadius: const BorderRadius.only(
+               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(12),
                 topRight: Radius.circular(12),
               ),
@@ -62,25 +62,20 @@ class InventoryManagementPageMobile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(
-                        state.widget.organizationName,
-                        style: const TextStyle(
-                          fontSize: 26,
-                          fontFamily: fontAll,
+                      Expanded(
+                        child: Text(
+                          state.widget.organizationName,
+                          style: const TextStyle(
+                            fontSize: 24,
+                            fontFamily: fontAll,
+                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
                       IconButton(
                         icon: const Icon(Icons.help_outline, size: 28),
                         onPressed: () => state.showHelpDialog(context),
-                      ),
-                      IconButton(
-                        icon: const Icon(
-                          Icons.notifications_outlined,
-                          size: 28,
-                        ),
-                        onPressed: () {},
                       ),
                     ],
                   ),
