@@ -4,21 +4,20 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../app_globals.dart';
 import '../../database/app_database.dart';
-import '../../services/realtime_stock_request_service.dart';
-import '../../widgets/realtime_status_indicator.dart';
-import '../../utils/design_constants.dart'; // fontAll is defined here
+import '../../utils/design_constants.dart';
 
-// Button type for empty state
-enum EmptyButtonType { none, add }
+// Import separated UI files
+import 'requests_page_mobile.dart';
+import 'requests_page_desktop.dart';
 
 class RequestsPage extends StatefulWidget {
   const RequestsPage({super.key});
 
   @override
-  State<RequestsPage> createState() => _RequestsPageState();
+  State<RequestsPage> createState() => RequestsPageState();
 }
 
-class _RequestsPageState extends State<RequestsPage> {
+class RequestsPageState extends State<RequestsPage> {
   late AppDatabase db;
   int? currentUserId;
   int? commissaryId;
@@ -28,6 +27,7 @@ class _RequestsPageState extends State<RequestsPage> {
   final TextEditingController _searchController = TextEditingController();
   int selectedTab = 0;
   String searchQuery = '';
+  final TextEditingController searchController = TextEditingController();
 
   // Sort functionality
   String requestSortOrder = 'newestFirst';
@@ -41,12 +41,18 @@ class _RequestsPageState extends State<RequestsPage> {
 
   @override
   void dispose() {
-    _searchController.dispose();
-    // Only detach if we successfully attached (guard against negative reference count)
-    if (_commissaryCloudId != null) {
-      realtimeStockRequestService.detach();
-    }
+    searchController.dispose();
     super.dispose();
+  }
+
+  void setSearchQuery(String query) {
+    setState(() {
+      searchQuery = query;
+    });
+  }
+
+  void refresh() {
+    setState(() {});
   }
 
   void setRequestSortOrder(String order) {
@@ -55,7 +61,8 @@ class _RequestsPageState extends State<RequestsPage> {
     });
   }
 
-  List<StockReplenishmentRequest> _sortRequests(
+  // Public method for scaffolds to use
+  List<StockReplenishmentRequest> sortRequests(
     List<StockReplenishmentRequest> requests,
   ) {
     final sorted = List<StockReplenishmentRequest>.from(requests);
@@ -342,135 +349,6 @@ class _RequestsPageState extends State<RequestsPage> {
     }
   }
 
-  void setSelectedTab(int index) {
-    setState(() {
-      selectedTab = index;
-    });
-  }
-
-  // Helper method to display empty state
-  Widget emptyTables({
-    required String message,
-    VoidCallback? onAddPressed,
-    EmptyButtonType buttonType = EmptyButtonType.none,
-  }) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[400]),
-          const SizedBox(height: 16),
-          Text(
-            message,
-            style: TextStyle(color: Colors.grey[600], fontSize: 16),
-            textAlign: TextAlign.center,
-          ),
-          if (buttonType == EmptyButtonType.add && onAddPressed != null) ...[
-            const SizedBox(height: 16),
-            ElevatedButton.icon(
-              onPressed: onAddPressed,
-              icon: const Icon(Icons.add),
-              label: const Text('Add New'),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // Helper method to build a simple table
-  Widget buildUniversalTable({
-    required List<String> headers,
-    required List<List<dynamic>> rows,
-    double smallHeaderWidth = 20,
-    double largeHeaderWidth = 60,
-  }) {
-    return SingleChildScrollView(
-      child: Table(
-        columnWidths: const {
-          0: FlexColumnWidth(1),
-          1: FlexColumnWidth(2),
-          2: FlexColumnWidth(2),
-          3: FlexColumnWidth(1),
-          4: FlexColumnWidth(1), 
-          5: FlexColumnWidth(1),
-          6: FlexColumnWidth(1),
-          7: FlexColumnWidth(1),
-        },
-        border: TableBorder(
-          horizontalInside: BorderSide(color: Colors.grey[300]!, width: 1),
-        ),
-        children: [
-          // Header row
-          TableRow(
-            decoration: BoxDecoration(color: Colors.grey[100]),
-            children: headers.map((h) => Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text(
-                h,
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontFamily: fontAll,
-                ),
-              ),
-            )).toList(),
-          ),
-          // Data rows
-          ...rows.map((row) => TableRow(
-            children: row.map((cell) {
-              if (cell is Widget) {
-                return Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: cell,
-                );
-              }
-              return Padding(
-                padding: const EdgeInsets.all(12),
-                child: Text(cell.toString()),
-              );
-            }).toList(),
-          )),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTab(String label, int index) {
-    bool active = selectedTab == index;
-    return Expanded(
-      child: MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          onTap: () => setSelectedTab(index),
-          child: Container(
-            height: 45,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: active ? Colors.white : Colors.grey[300],
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-              boxShadow: active
-                  ? [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.12),
-                        blurRadius: 4,
-                        offset: const Offset(0, 2),
-                      ),
-                    ]
-                  : [],
-            ),
-            child: Text(
-              label,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     if (commissaryId == null) {
@@ -480,133 +358,19 @@ class _RequestsPageState extends State<RequestsPage> {
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Stock Replenishment Requests'),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(right: 8),
-            child: RealtimeStatusIndicator(
-              service: realtimeStockRequestService,
-            ),
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () async {
-              // Trigger sync and refresh
-              try {
-                await syncService.performFullSync();
-              } catch (e) {
-                print('Sync error: $e');
-              }
-              if (mounted) setState(() {}); 
-            },
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Tab bar
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Row(
-                children: [
-                  _buildTab('Pending Requests', 0),
-                  _buildTab('Request History', 1),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Tab content
-            Expanded(
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: selectedTab == 0
-                    ? _buildPendingRequestsTab()
-                    : _buildHistoryTab(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
+    // Determine if we're on mobile or desktop based on screen width
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isMobile = screenWidth < 800;
+
+    if (isMobile) {
+      return RequestsPageMobile(state: this);
+    } else {
+      return RequestsPageDesktop(state: this);
+    }
   }
 
-  Widget _buildPendingRequestsTab() {
-    return StreamBuilder<List<StockReplenishmentRequest>>(
-      stream: db.stockReplenishmentRequestsDao.watchPendingRequests(
-        commissaryId!,
-      ),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        final allRequests = snapshot.data!;
-
-        // Filter requests based on search
-        var requests = allRequests.where((req) {
-          if (searchQuery.isEmpty) return true;
-          return req.id.toString().contains(searchQuery) ||
-              req.quantityRequested.toString().contains(searchQuery);
-        }).toList();
-
-        // Apply sorting
-        requests = _sortRequests(requests);
-
-        if (requests.isEmpty) {
-          return emptyTables(
-            message: allRequests.isEmpty
-                ? 'No pending requests. All caught up!'
-                : 'No requests match your search.',
-            onAddPressed: null,
-            buttonType: EmptyButtonType.none,
-          );
-        }
-
-        return FutureBuilder<List<List<dynamic>>>(
-          future: _buildRequestRows(requests),
-          builder: (context, rowSnapshot) {
-            if (!rowSnapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            return buildUniversalTable(
-              headers: [
-                'Request ID',
-                'Branch',
-                'Item',
-                'Qty Requested',
-                'Stock Available',
-                'Date',
-                'Status',
-                '',
-              ],
-              rows: rowSnapshot.data!,
-              smallHeaderWidth: 20,
-              largeHeaderWidth: 60,
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<List<List<dynamic>>> _buildRequestRows(
+  // Public method for scaffolds to build request rows
+  Future<List<List<dynamic>>> buildRequestRows(
     List<StockReplenishmentRequest> requests,
   ) async {
     List<List<dynamic>> rows = [];
@@ -684,72 +448,8 @@ class _RequestsPageState extends State<RequestsPage> {
     return rows;
   }
 
-  Widget _buildHistoryTab() {
-    return StreamBuilder<List<StockReplenishmentRequest>>(
-      stream: db.stockReplenishmentRequestsDao.watchAllRequests(commissaryId!),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}'));
-        }
-
-        if (!snapshot.hasData) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        // Filter to show only non-pending (approved/rejected) requests
-        final allRequests = snapshot.data!
-            .where((r) => r.status != 'pending')
-            .toList();
-
-        // Filter requests based on search
-        var requests = allRequests.where((req) {
-          if (searchQuery.isEmpty) return true;
-          return req.id.toString().contains(searchQuery) ||
-              req.status.toLowerCase().contains(searchQuery);
-        }).toList();
-
-        // Apply sorting
-        requests = _sortRequests(requests);
-
-        if (requests.isEmpty) {
-          return emptyTables(
-            message: allRequests.isEmpty
-                ? 'No request history yet.'
-                : 'No requests match your search.',
-            onAddPressed: null,
-            buttonType: EmptyButtonType.none,
-          );
-        }
-
-        return FutureBuilder<List<List<dynamic>>>(
-          future: _buildHistoryRows(requests),
-          builder: (context, rowSnapshot) {
-            if (!rowSnapshot.hasData) {
-              return const Center(child: CircularProgressIndicator());
-            }
-
-            return buildUniversalTable(
-              headers: [
-                'Request ID',
-                'Branch',
-                'Item',
-                'Qty Requested',
-                'Date',
-                'Reviewed',
-                'Status',
-                '',
-              ],
-              rows: rowSnapshot.data!,
-              smallHeaderWidth: 20,
-              largeHeaderWidth: 60,
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<List<List<dynamic>>> _buildHistoryRows(
+  // Public method for scaffolds to build history rows
+  Future<List<List<dynamic>>> buildHistoryRows(
     List<StockReplenishmentRequest> requests,
   ) async {
     List<List<dynamic>> rows = [];
