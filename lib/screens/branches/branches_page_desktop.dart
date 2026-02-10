@@ -106,6 +106,11 @@ class BranchesPageDesktop extends StatelessWidget {
                     onPressed: () => state.toggleShowActiveOnly(!state.showActiveOnly),
                   ),
                 IconButton(
+                  icon: const Icon(Icons.sync, size: 35),
+                  tooltip: 'Force Sync',
+                  onPressed: () => state.forceSyncAndReload(),
+                ),
+                IconButton(
                   icon: const Icon(Icons.notifications_outlined, size: 35),
                   onPressed: () {},
                 ),
