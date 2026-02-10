@@ -51,6 +51,12 @@ class RequestsPageState extends State<RequestsPage> {
     });
   }
 
+  void setSelectedTab(int index) {
+    setState(() {
+      selectedTab = index;
+    });
+  }
+
   void refresh() {
     setState(() {});
   }
