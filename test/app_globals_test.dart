@@ -1,13 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:commissary_app/database/app_database.dart';
-import 'package:commissary_app/services/supabase_sync_service.dart';
+import 'package:commissary_app/services/supabase_sync_service_v2.dart';
 import 'package:commissary_app/services/supabase_auth_service.dart';
+import 'package:commissary_app/services/realtime_stock_request_service.dart';
 
 // Mock classes
 class MockAppDatabase extends Mock implements AppDatabase {}
-class MockSupabaseSyncService extends Mock implements SupabaseSyncService {}
+class MockSupabaseSyncServiceV2 extends Mock implements SupabaseSyncServiceV2 {}
 class MockSupabaseAuthService extends Mock implements SupabaseAuthService {}
+class MockRealtimeStockRequestService extends Mock implements RealtimeStockRequestService {}
 
 /// Test implementation of AppGlobals to avoid singleton issues
 class TestableAppGlobals {
@@ -16,18 +18,21 @@ class TestableAppGlobals {
   static final TestableAppGlobals instance = TestableAppGlobals._();
 
   AppDatabase? _database;
-  SupabaseSyncService? _syncService;
+  SupabaseSyncServiceV2? _syncService;
   SupabaseAuthService? _authService;
+  RealtimeStockRequestService? _realtimeStockRequestService;
   bool _isInitialized = false;
 
   void initialize({
     required AppDatabase database,
-    required SupabaseSyncService syncService,
+    required SupabaseSyncServiceV2 syncService,
     required SupabaseAuthService authService,
+    required RealtimeStockRequestService realtimeStockRequestService,
   }) {
     _database = database;
     _syncService = syncService;
     _authService = authService;
+    _realtimeStockRequestService = realtimeStockRequestService;
     _isInitialized = true;
   }
 
@@ -38,11 +43,18 @@ class TestableAppGlobals {
     return _database!;
   }
 
-  SupabaseSyncService get syncService {
+  SupabaseSyncServiceV2 get syncService {
     if (!_isInitialized) {
       throw StateError('AppGlobals has not been initialized. Call initialize() first.');
     }
     return _syncService!;
+  }
+
+  RealtimeStockRequestService get realtimeStockRequestService {
+    if (!_isInitialized) {
+      throw StateError('AppGlobals has not been initialized. Call initialize() first.');
+    }
+    return _realtimeStockRequestService!;
   }
 
   SupabaseAuthService get authService {
@@ -58,6 +70,7 @@ class TestableAppGlobals {
     _database = null;
     _syncService = null;
     _authService = null;
+    _realtimeStockRequestService = null;
     _isInitialized = false;
   }
 }
@@ -65,15 +78,17 @@ class TestableAppGlobals {
 void main() {
   late TestableAppGlobals appGlobals;
   late MockAppDatabase mockDatabase;
-  late MockSupabaseSyncService mockSyncService;
+  late MockSupabaseSyncServiceV2 mockSyncService;
   late MockSupabaseAuthService mockAuthService;
+  late MockRealtimeStockRequestService mockRealtimeStockRequestService;
 
   setUp(() {
     appGlobals = TestableAppGlobals.instance;
     appGlobals.reset();
     mockDatabase = MockAppDatabase();
-    mockSyncService = MockSupabaseSyncService();
+    mockSyncService = MockSupabaseSyncServiceV2();
     mockAuthService = MockSupabaseAuthService();
+    mockRealtimeStockRequestService = MockRealtimeStockRequestService();
   });
 
   group('AppGlobals', () {
@@ -97,6 +112,7 @@ void main() {
         database: mockDatabase,
         syncService: mockSyncService,
         authService: mockAuthService,
+        realtimeStockRequestService: mockRealtimeStockRequestService,
       );
       
       expect(appGlobals.isInitialized, isTrue);
@@ -107,6 +123,7 @@ void main() {
         database: mockDatabase,
         syncService: mockSyncService,
         authService: mockAuthService,
+        realtimeStockRequestService: mockRealtimeStockRequestService,
       );
       
       expect(appGlobals.database, equals(mockDatabase));
@@ -117,6 +134,7 @@ void main() {
         database: mockDatabase,
         syncService: mockSyncService,
         authService: mockAuthService,
+        realtimeStockRequestService: mockRealtimeStockRequestService,
       );
       
       expect(appGlobals.syncService, equals(mockSyncService));
@@ -127,6 +145,7 @@ void main() {
         database: mockDatabase,
         syncService: mockSyncService,
         authService: mockAuthService,
+        realtimeStockRequestService: mockRealtimeStockRequestService,
       );
       
       expect(appGlobals.authService, equals(mockAuthService));
@@ -138,6 +157,7 @@ void main() {
           database: mockDatabase,
           syncService: mockSyncService,
           authService: mockAuthService,
+          realtimeStockRequestService: mockRealtimeStockRequestService,
         ),
         returnsNormally,
       );
@@ -148,6 +168,7 @@ void main() {
         database: mockDatabase,
         syncService: mockSyncService,
         authService: mockAuthService,
+        realtimeStockRequestService: mockRealtimeStockRequestService,
       );
 
       final newMockDatabase = MockAppDatabase();
@@ -155,6 +176,7 @@ void main() {
         database: newMockDatabase,
         syncService: mockSyncService,
         authService: mockAuthService,
+        realtimeStockRequestService: mockRealtimeStockRequestService,
       );
 
       expect(appGlobals.database, equals(newMockDatabase));
@@ -201,6 +223,7 @@ void main() {
         database: mockDatabase,
         syncService: mockSyncService,
         authService: mockAuthService,
+        realtimeStockRequestService: mockRealtimeStockRequestService,
       );
       
       appGlobals.reset();
@@ -213,6 +236,7 @@ void main() {
         database: mockDatabase,
         syncService: mockSyncService,
         authService: mockAuthService,
+        realtimeStockRequestService: mockRealtimeStockRequestService,
       );
       
       appGlobals.reset();
