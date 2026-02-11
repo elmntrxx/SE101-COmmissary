@@ -303,4 +303,62 @@ class IngredientsDao extends DatabaseAccessor<AppDatabase>
       ),
     );
   }
+
+  // ============================================================================
+  // SYNC METHODS (for SyncEngine compatibility)
+  // ============================================================================
+
+  /// Upsert a single ingredient from cloud data
+  /// SyncEngine provides camelCase keys with resolved local IDs
+  Future<int> upsertFromCloud(Map<String, dynamic> cloudData) async {
+    final cloudId = (cloudData['cloudId'] ?? cloudData['cloud_id']) as String?;
+    if (cloudId == null) throw ArgumentError('cloudId is required');
+
+    final existing = await getIngredientByCloudId(cloudId);
+
+    // Protect local unsynced changes from being overwritten
+    if (existing != null && existing.needsSync) {
+      return existing.id;
+    }
+
+    // SyncEngine already resolves FKs to local IDs with camelCase keys
+    final commId = cloudData['commissaryId'] as int?;
+
+    final companion = IngredientsCompanion(
+      cloudId: Value(cloudId),
+      commissaryId: Value(commId ?? existing?.commissaryId ?? 0),
+      name: Value(cloudData['name'] as String? ?? 'Unknown'),
+      unit: Value(cloudData['unit'] as String? ?? 'pcs'),
+      stock: Value((cloudData['stock'] as num?)?.toDouble() ?? 0.0),
+      costPerUnit: Value((cloudData['costPerUnit'] as num?)?.toDouble() ?? 0.0),
+      criticalLevel: Value((cloudData['criticalLevel'] as num?)?.toDouble() ?? 10.0),
+      isActive: Value(cloudData['isActive'] as bool? ?? true),
+      createdAt: cloudData['createdAt'] != null
+          ? Value(cloudData['createdAt'] is DateTime 
+              ? cloudData['createdAt'] as DateTime 
+              : DateTime.parse(cloudData['createdAt'] as String))
+          : Value(DateTime.now()),
+      updatedAt: cloudData['updatedAt'] != null
+          ? Value(cloudData['updatedAt'] is DateTime 
+              ? cloudData['updatedAt'] as DateTime 
+              : DateTime.parse(cloudData['updatedAt'] as String))
+          : Value(DateTime.now()),
+      lastSyncedAt: Value(DateTime.now()),
+      needsSync: const Value(false),
+    );
+
+    if (existing != null) {
+      await (update(ingredients)..where((i) => i.id.equals(existing.id))).write(companion);
+      return existing.id;
+    } else {
+      return into(ingredients).insert(companion);
+    }
+  }
+
+  /// Upsert batch of ingredients from cloud data
+  Future<void> upsertBatchFromCloud(List<Map<String, dynamic>> cloudDataList) async {
+    for (final cloudData in cloudDataList) {
+      await upsertFromCloud(cloudData);
+    }
+  }
 }

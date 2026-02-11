@@ -144,28 +144,35 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
   // ============================================================================
 
   /// Upsert a single user from cloud data
+  /// SyncEngine provides camelCase keys with resolved local IDs
   /// Returns the local ID of the inserted/updated user
   /// Note: organizationId and roleId must be resolved to local IDs before calling
   Future<int> upsertFromCloud(Map<String, dynamic> cloudData, {
     required int organizationId,
     required int roleId,
   }) async {
-    final cloudId = cloudData['cloud_id'] as String;
+    final cloudId = (cloudData['cloudId'] ?? cloudData['cloud_id']) as String?;
+    if (cloudId == null) throw ArgumentError('cloudId is required');
     
     // Check if user already exists by cloud_id
     final existing = await getUserByCloudId(cloudId);
+    
+    // Protect local unsynced changes from being overwritten
+    if (existing != null && existing.needsSync) {
+      return existing.id;
+    }
     
     if (existing != null) {
       // Update existing user
       await (update(users)..where((u) => u.id.equals(existing.id))).write(
         UsersCompanion(
-          username: Value(cloudData['username'] as String),
-          email: Value(cloudData['email'] as String),
+          username: Value(cloudData['username'] as String? ?? cloudData['name'] as String? ?? existing.username),
+          email: Value(cloudData['email'] as String? ?? existing.email),
           phone: Value(cloudData['phone'] as String?),
           organizationId: Value(organizationId),
           roleId: Value(roleId),
-          authUserId: Value(cloudData['auth_user_id'] as String?),
-          isActive: Value(cloudData['is_active'] as bool? ?? true),
+          authUserId: Value(cloudData['authUserId'] as String?),
+          isActive: Value(cloudData['isActive'] as bool? ?? true),
           updatedAt: Value(DateTime.now()),
           lastSyncedAt: Value(DateTime.now()),
           needsSync: const Value(false),
@@ -174,22 +181,22 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
       return existing.id;
     } else {
       // Insert new user
-      // Use password_hash from cloud, or a placeholder if not provided
-      final passwordHash = cloudData['password_hash'] as String? ?? 
+      // Use passwordHash from cloud, or a placeholder if not provided
+      final passwordHash = cloudData['passwordHash'] as String? ?? 
                           cloudData['password'] as String? ?? 
                           'synced_from_cloud';
       
       final id = await into(users).insert(
         UsersCompanion.insert(
           cloudId: cloudId,
-          username: cloudData['username'] as String,
-          email: cloudData['email'] as String,
+          username: cloudData['username'] as String? ?? cloudData['name'] as String? ?? 'Unknown',
+          email: cloudData['email'] as String? ?? '',
           phone: Value(cloudData['phone'] as String?),
           passwordHash: passwordHash,
           organizationId: organizationId,
           roleId: roleId,
-          authUserId: Value(cloudData['auth_user_id'] as String?),
-          isActive: Value(cloudData['is_active'] as bool? ?? true),
+          authUserId: Value(cloudData['authUserId'] as String?),
+          isActive: Value(cloudData['isActive'] as bool? ?? true),
           lastSyncedAt: Value(DateTime.now()),
           needsSync: const Value(false),
         ),
@@ -199,11 +206,12 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
   }
 
   /// Upsert multiple users from cloud data
-  /// Each item in cloudDataList must have 'resolved_organization_id' and 'resolved_role_id'
+  /// SyncEngine provides camelCase keys with resolved local IDs
+  /// Each item in cloudDataList must have 'organizationId' and 'roleId' (resolved by SyncEngine)
   Future<void> upsertBatchFromCloud(List<Map<String, dynamic>> cloudDataList) async {
     for (final cloudData in cloudDataList) {
-      final orgId = cloudData['resolved_organization_id'] as int?;
-      final roleId = cloudData['resolved_role_id'] as int?;
+      final orgId = cloudData['organizationId'] as int?;
+      final roleId = cloudData['roleId'] as int?;
       
       if (orgId != null && roleId != null) {
         await upsertFromCloud(cloudData, organizationId: orgId, roleId: roleId);

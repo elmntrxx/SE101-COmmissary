@@ -21,6 +21,10 @@ class RequestsPageState extends State<RequestsPage> {
   late AppDatabase db;
   int? currentUserId;
   int? commissaryId;
+  String? _commissaryCloudId;
+  
+  // Missing state variables - added to fix compile errors
+  final TextEditingController _searchController = TextEditingController();
   int selectedTab = 0;
   String searchQuery = '';
   final TextEditingController searchController = TextEditingController();
@@ -100,23 +104,40 @@ class RequestsPageState extends State<RequestsPage> {
   }
 
   Future<void> _loadContext() async {
+    debugPrint('RequestsPage: loading context...');
     final user = AppGlobals.instance.authService.currentUser;
+    debugPrint('RequestsPage: currentUser=${user?.id} orgId=${user?.organizationId}');
     if (user != null) {
       if (mounted) {
         setState(() {
           currentUserId = user.id;
-          commissaryId = user
-              .organizationId; // Assuming user is logged into commissary org
+          commissaryId = user.organizationId;
         });
       }
+
+      try {
+        final org = await db.organizationsDao.getOrganizationById(user.organizationId);
+        debugPrint('RequestsPage: org cloudId=${org?.cloudId}');
+        if (org?.cloudId != null) {
+          _commissaryCloudId = org!.cloudId;
+          debugPrint('RequestsPage: attaching realtime cloudId=$_commissaryCloudId');
+          await realtimeStockRequestService.attach(_commissaryCloudId!);
+          realtimeStockRequestService.statusStream.listen((status) {
+            debugPrint('RequestsPage: realtime status=$status');
+          });
+          realtimeStockRequestService.eventStream.listen((event) {
+            debugPrint('RequestsPage: realtime event cloudId=${event.cloudId} status=${event.status}');
+          });
+        }
+      } catch (e) {
+        debugPrint('RequestsPage: WARN Failed to initialize realtime: $e');
+      }
+    } else {
+      debugPrint('RequestsPage: no currentUser yet');
     }
   }
 
-  void setSelectedTab(int index) {
-    setState(() {
-      selectedTab = index;
-    });
-  }
+
 
   Future<void> _approveRequest(StockReplenishmentRequest request) async {
     if (currentUserId == null) return;
