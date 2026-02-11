@@ -1,11 +1,11 @@
 // lib/screens/reports/reports_page.dart
 import 'package:flutter/material.dart';
-import '../../app_globals.dart';
-import '../../database/app_database.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/reports_service.dart';
 import '../../utils/design_constants.dart';
 
 /// Reports Page - Cross-branch reporting for commissary
-/// Shows aggregated data from ALL franchisee branches
+/// Uses Supabase views (branch_sales_summary, network_daily_sales) for accurate data
 class ReportsPage extends StatefulWidget {
   const ReportsPage({super.key});
 
@@ -14,84 +14,60 @@ class ReportsPage extends StatefulWidget {
 }
 
 class _ReportsPageState extends State<ReportsPage> {
-  late AppDatabase _db;
+  late ReportsService _reportsService;
   bool _isLoading = true;
+  String? _errorMessage;
 
-  // Data
-  List<Organization> _branches = [];
-  Map<int, List<Item>> _branchItems = {};
-  Map<int, Map<String, dynamic>> _branchStats = {};
-  Organization? _selectedBranch; // null = All branches
+  // Data from Supabase views
+  NetworkAggregatedStats _networkStats = NetworkAggregatedStats.empty();
+  List<BranchAggregatedStats> _branchStats = [];
+  List<BranchSalesSummary> _selectedBranchDailyData = [];
+  
+  // Filters
+  BranchAggregatedStats? _selectedBranch; // null = All branches
   String _selectedPeriod = 'This Week';
-
-  // Aggregated stats
-  int _totalItems = 0;
-  int _totalSold = 0;
-  int _totalSpoilage = 0;
-  int _lowStockCount = 0;
 
   @override
   void initState() {
     super.initState();
-    _db = database;
+    _reportsService = ReportsService(supabase: Supabase.instance.client);
     _loadData();
   }
 
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
 
     try {
-      // Get commissary
-      final commissary = await _db.organizationsDao.getCommissary();
-      if (commissary == null) {
-        setState(() => _isLoading = false);
-        return;
+      // Fetch network-wide stats from Supabase view
+      final networkStats = await _reportsService.fetchNetworkStats(_selectedPeriod);
+      
+      // Fetch per-branch stats from Supabase view
+      final branchStats = await _reportsService.fetchBranchStats(_selectedPeriod);
+
+      // If a specific branch is selected, fetch its daily breakdown
+      List<BranchSalesSummary> branchDailyData = [];
+      if (_selectedBranch != null) {
+        branchDailyData = await _reportsService.fetchBranchDailyBreakdown(
+          organizationId: _selectedBranch!.organizationId,
+          period: _selectedPeriod,
+        );
       }
 
-      // Get all branches
-      _branches = await _db.organizationsDao.getFranchisees(commissary.cloudId);
-
-      // Get items and stats for each branch
-      _branchItems = {};
-      _branchStats = {};
-      _totalItems = 0;
-      _totalSold = 0;
-      _totalSpoilage = 0;
-      _lowStockCount = 0;
-
-      for (final branch in _branches) {
-        final items = await _db.itemsDao.getItemsByOrganization(branch.id);
-        _branchItems[branch.id] = items;
-
-        // Calculate stats for this branch
-        int sold = 0;
-        int spoilage = 0;
-        int lowStock = 0;
-
-        for (final item in items) {
-          sold += item.sold;
-          spoilage += item.spoilage;
-          if (item.stock <= item.criticalLevel) lowStock++;
-        }
-
-        _branchStats[branch.id] = {
-          'itemCount': items.length,
-          'sold': sold,
-          'spoilage': spoilage,
-          'lowStock': lowStock,
-        };
-
-        // Add to totals
-        _totalItems += items.length;
-        _totalSold += sold;
-        _totalSpoilage += spoilage;
-        _lowStockCount += lowStock;
-      }
-
-      setState(() => _isLoading = false);
+      setState(() {
+        _networkStats = networkStats;
+        _branchStats = branchStats;
+        _selectedBranchDailyData = branchDailyData;
+        _isLoading = false;
+      });
     } catch (e) {
       print('❌ Error loading reports: $e');
-      setState(() => _isLoading = false);
+      setState(() {
+        _errorMessage = 'Failed to load reports: $e';
+        _isLoading = false;
+      });
     }
   }
 
@@ -146,6 +122,30 @@ class _ReportsPageState extends State<ReportsPage> {
                       _buildMobileBranchComparison(),
                       const SizedBox(height: 24),
 
+                      // Error message if any
+                      if (_errorMessage != null) ...[                
+                        Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.red.shade50,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.error_outline, color: Colors.red),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  _errorMessage!,
+                                  style: const TextStyle(color: Colors.red),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
                       // Branch List
                       if (_selectedBranch == null) ...[
                         const Text(
@@ -158,9 +158,9 @@ class _ReportsPageState extends State<ReportsPage> {
                         ),
                         const SizedBox(height: 12),
                         _buildMobileBranchList(),
-                      ] else ...[
+                      ] else if (_selectedBranch != null) ...[
                         Text(
-                          '${_selectedBranch!.name}',
+                          _selectedBranch!.branchName,
                           style: const TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -168,7 +168,7 @@ class _ReportsPageState extends State<ReportsPage> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        _buildMobileBranchDetails(_selectedBranch!),
+                        _buildMobileBranchDetails(),
                       ],
                     ],
                   ),
@@ -208,6 +208,30 @@ class _ReportsPageState extends State<ReportsPage> {
                   _buildBranchComparison(),
                   const SizedBox(height: 32),
 
+                  // Error message if any
+                  if (_errorMessage != null) ...[                
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.red.shade50,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.error_outline, color: Colors.red),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              _errorMessage!,
+                              style: const TextStyle(color: Colors.red),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                  ],
+
                   // Detailed tables
                   if (_selectedBranch == null) ...[
                     const Text(
@@ -222,7 +246,7 @@ class _ReportsPageState extends State<ReportsPage> {
                     _buildAllBranchesTable(),
                   ] else ...[
                     Text(
-                      '${_selectedBranch!.name} Details',
+                      '${_selectedBranch!.branchName} Details',
                       style: const TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -230,7 +254,7 @@ class _ReportsPageState extends State<ReportsPage> {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    _buildBranchDetailsTable(_selectedBranch!),
+                    _buildBranchDetailsTable(),
                   ],
                 ],
               ),
@@ -252,21 +276,22 @@ class _ReportsPageState extends State<ReportsPage> {
             border: Border.all(color: Colors.grey.shade300),
           ),
           child: DropdownButtonHideUnderline(
-            child: DropdownButton<Organization?>(
+            child: DropdownButton<BranchAggregatedStats?>(
               value: _selectedBranch,
               hint: const Text('All Branches'),
               items: [
-                const DropdownMenuItem<Organization?>(
+                const DropdownMenuItem<BranchAggregatedStats?>(
                   value: null,
                   child: Text('All Branches'),
                 ),
-                ..._branches.map((branch) => DropdownMenuItem(
+                ..._branchStats.map((branch) => DropdownMenuItem(
                       value: branch,
-                      child: Text(branch.name),
+                      child: Text(branch.branchName),
                     )),
               ],
               onChanged: (value) {
                 setState(() => _selectedBranch = value);
+                _loadData(); // Reload data for selected branch
               },
             ),
           ),
@@ -289,6 +314,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   .toList(),
               onChanged: (value) {
                 setState(() => _selectedPeriod = value!);
+                _loadData(); // Reload data for new period
               },
             ),
           ),
@@ -320,36 +346,46 @@ class _ReportsPageState extends State<ReportsPage> {
       children: [
         _buildStatCard(
           title: 'Active Branches',
-          value: '${_branches.length}',
+          value: '${_networkStats.activeBranches}',
           icon: Icons.store,
           color: Colors.blue,
         ),
         _buildStatCard(
-          title: 'Total Items',
-          value: '$_totalItems',
-          icon: Icons.inventory,
+          title: 'Total Revenue',
+          value: '₱${_formatCurrency(_networkStats.totalRevenue)}',
+          icon: Icons.attach_money,
           color: Colors.green,
         ),
         _buildStatCard(
           title: 'Total Sold',
-          value: '$_totalSold',
+          value: '${_networkStats.totalSold}',
           icon: Icons.shopping_cart,
           color: Colors.purple,
         ),
         _buildStatCard(
+          title: 'Total Profit',
+          value: '₱${_formatCurrency(_networkStats.totalProfit)}',
+          icon: Icons.trending_up,
+          color: Colors.teal,
+        ),
+        _buildStatCard(
           title: 'Total Spoilage',
-          value: '$_totalSpoilage',
+          value: '${_networkStats.totalSpoiled}',
           icon: Icons.delete_forever,
           color: Colors.orange,
         ),
-        _buildStatCard(
-          title: 'Low Stock Alerts',
-          value: '$_lowStockCount',
-          icon: Icons.warning,
-          color: Colors.red,
-        ),
       ],
     );
+  }
+
+  /// Format currency with thousands separator
+  String _formatCurrency(double amount) {
+    if (amount >= 1000000) {
+      return '${(amount / 1000000).toStringAsFixed(1)}M';
+    } else if (amount >= 1000) {
+      return '${(amount / 1000).toStringAsFixed(1)}K';
+    }
+    return amount.toStringAsFixed(2);
   }
 
   Widget _buildStatCard({
@@ -361,7 +397,6 @@ class _ReportsPageState extends State<ReportsPage> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final availableHeight = constraints.maxHeight;
-        final availableWidth = constraints.maxWidth;
         
         // Calculate appropriate sizes based on available space
         final padding = availableHeight * 0.12;
@@ -435,7 +470,7 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 
   Widget _buildBranchComparison() {
-    if (_branches.isEmpty) {
+    if (_branchStats.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(40),
         decoration: BoxDecoration(
@@ -458,11 +493,9 @@ class _ReportsPageState extends State<ReportsPage> {
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
-        children: _branches.map((branch) {
-          final stats = _branchStats[branch.id] ?? {};
-          final sold = stats['sold'] ?? 0;
-          final maxSold = _totalSold > 0 ? _totalSold : 1;
-          final percentage = (sold / maxSold * 100).toInt();
+        children: _branchStats.map((branch) {
+          final maxRevenue = _networkStats.totalRevenue > 0 ? _networkStats.totalRevenue : 1;
+          final percentage = (branch.totalRevenue / maxRevenue * 100).clamp(0, 100).toInt();
 
           return Expanded(
             child: Padding(
@@ -471,10 +504,10 @@ class _ReportsPageState extends State<ReportsPage> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    '$sold',
+                    '₱${_formatCurrency(branch.totalRevenue)}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                      fontSize: 14,
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -506,7 +539,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    branch.name,
+                    branch.branchName,
                     style: const TextStyle(fontSize: 12),
                     textAlign: TextAlign.center,
                     maxLines: 2,
@@ -522,69 +555,7 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 
   Widget _buildAllBranchesTable() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: DataTable(
-        columns: const [
-          DataColumn(
-              label: Text('Branch', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(
-              label: Text('Items', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(
-              label: Text('Sold', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(
-              label: Text('Spoilage', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(
-              label: Text('Low Stock', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(
-              label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
-        ],
-        rows: _branches.map((branch) {
-          final stats = _branchStats[branch.id] ?? {};
-
-          return DataRow(cells: [
-            DataCell(Text(branch.name)),
-            DataCell(Text('${stats['itemCount'] ?? 0}')),
-            DataCell(Text('${stats['sold'] ?? 0}')),
-            DataCell(Text('${stats['spoilage'] ?? 0}')),
-            DataCell(
-              Row(
-                children: [
-                  if ((stats['lowStock'] ?? 0) > 0)
-                    const Icon(Icons.warning, color: Colors.orange, size: 16),
-                  Text('${stats['lowStock'] ?? 0}'),
-                ],
-              ),
-            ),
-            DataCell(
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: branch.isActive ? Colors.green.shade100 : Colors.red.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  branch.isActive ? 'Active' : 'Inactive',
-                  style: TextStyle(
-                    color: branch.isActive ? Colors.green : Colors.red,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ),
-          ]);
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildBranchDetailsTable(Organization branch) {
-    final items = _branchItems[branch.id] ?? [];
-
-    if (items.isEmpty) {
+    if (_branchStats.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(40),
         decoration: BoxDecoration(
@@ -592,7 +563,7 @@ class _ReportsPageState extends State<ReportsPage> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Center(
-          child: Text('No items found for this branch'),
+          child: Text('No branch data available for this period'),
         ),
       );
     }
@@ -604,44 +575,64 @@ class _ReportsPageState extends State<ReportsPage> {
       ),
       child: DataTable(
         columns: const [
-          DataColumn(label: Text('Item', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Stock', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Sold', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Spoilage', style: TextStyle(fontWeight: FontWeight.bold))),
-          DataColumn(label: Text('Status', style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(
+              label: Text('Branch', style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(
+              label: Text('Revenue', style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(
+              label: Text('Sold', style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(
+              label: Text('Profit', style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(
+              label: Text('Days Active', style: TextStyle(fontWeight: FontWeight.bold))),
         ],
-        rows: items.map((item) {
-          final isLowStock = item.stock <= item.criticalLevel;
+        rows: _branchStats.map((branch) {
+          return DataRow(cells: [
+            DataCell(Text(branch.branchName)),
+            DataCell(Text('₱${_formatCurrency(branch.totalRevenue)}')),
+            DataCell(Text('${branch.totalSold}')),
+            DataCell(Text('₱${_formatCurrency(branch.totalProfit)}')),
+            DataCell(Text('${branch.daysActive}')),
+          ]);
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildBranchDetailsTable() {
+    if (_selectedBranchDailyData.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(40),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Text('No sales data found for this branch in the selected period'),
+        ),
+      );
+    }
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: DataTable(
+        columns: const [
+          DataColumn(label: Text('Date', style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text('Revenue', style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text('Sold', style: TextStyle(fontWeight: FontWeight.bold))),
+          DataColumn(label: Text('Profit', style: TextStyle(fontWeight: FontWeight.bold))),
+        ],
+        rows: _selectedBranchDailyData.map((summary) {
+          final dateStr = '${summary.summaryDate.month}/${summary.summaryDate.day}/${summary.summaryDate.year}';
 
           return DataRow(cells: [
-            DataCell(Text(item.name)),
-            DataCell(
-              Row(
-                children: [
-                  if (isLowStock)
-                    const Icon(Icons.warning, color: Colors.orange, size: 16),
-                  Text('${item.stock}'),
-                ],
-              ),
-            ),
-            DataCell(Text('${item.sold}')),
-            DataCell(Text('${item.spoilage}')),
-            DataCell(
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: isLowStock ? Colors.orange.shade100 : Colors.green.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Text(
-                  isLowStock ? 'Low Stock' : 'OK',
-                  style: TextStyle(
-                    color: isLowStock ? Colors.orange : Colors.green,
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ),
+            DataCell(Text(dateStr)),
+            DataCell(Text('₱${_formatCurrency(summary.totalRevenue)}')),
+            DataCell(Text('${summary.totalSold}')),
+            DataCell(Text('₱${_formatCurrency(summary.totalProfit)}')),
           ]);
         }).toList(),
       ),
@@ -663,22 +654,23 @@ class _ReportsPageState extends State<ReportsPage> {
             border: Border.all(color: Colors.grey.shade300),
           ),
           child: DropdownButtonHideUnderline(
-            child: DropdownButton<Organization?>(
+            child: DropdownButton<BranchAggregatedStats?>(
               value: _selectedBranch,
               isExpanded: true,
               hint: const Text('All Branches'),
               items: [
-                const DropdownMenuItem<Organization?>(
+                const DropdownMenuItem<BranchAggregatedStats?>(
                   value: null,
                   child: Text('All Branches'),
                 ),
-                ..._branches.map((branch) => DropdownMenuItem(
+                ..._branchStats.map((branch) => DropdownMenuItem(
                       value: branch,
-                      child: Text(branch.name),
+                      child: Text(branch.branchName),
                     )),
               ],
               onChanged: (value) {
                 setState(() => _selectedBranch = value);
+                _loadData();
               },
             ),
           ),
@@ -703,6 +695,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   .toList(),
               onChanged: (value) {
                 setState(() => _selectedPeriod = value!);
+                _loadData();
               },
             ),
           ),
@@ -719,7 +712,7 @@ class _ReportsPageState extends State<ReportsPage> {
             Expanded(
               child: _buildMobileStatCard(
                 title: 'Branches',
-                value: '${_branches.length}',
+                value: '${_networkStats.activeBranches}',
                 icon: Icons.store,
                 color: Colors.blue,
               ),
@@ -727,9 +720,9 @@ class _ReportsPageState extends State<ReportsPage> {
             const SizedBox(width: 12),
             Expanded(
               child: _buildMobileStatCard(
-                title: 'Items',
-                value: '$_totalItems',
-                icon: Icons.inventory,
+                title: 'Revenue',
+                value: '₱${_formatCurrency(_networkStats.totalRevenue)}',
+                icon: Icons.attach_money,
                 color: Colors.green,
               ),
             ),
@@ -741,7 +734,7 @@ class _ReportsPageState extends State<ReportsPage> {
             Expanded(
               child: _buildMobileStatCard(
                 title: 'Sold',
-                value: '$_totalSold',
+                value: '${_networkStats.totalSold}',
                 icon: Icons.shopping_cart,
                 color: Colors.purple,
               ),
@@ -749,20 +742,20 @@ class _ReportsPageState extends State<ReportsPage> {
             const SizedBox(width: 12),
             Expanded(
               child: _buildMobileStatCard(
-                title: 'Spoilage',
-                value: '$_totalSpoilage',
-                icon: Icons.delete_forever,
-                color: Colors.orange,
+                title: 'Profit',
+                value: '₱${_formatCurrency(_networkStats.totalProfit)}',
+                icon: Icons.trending_up,
+                color: Colors.teal,
               ),
             ),
           ],
         ),
         const SizedBox(height: 12),
         _buildMobileStatCard(
-          title: 'Low Stock Alerts',
-          value: '$_lowStockCount',
-          icon: Icons.warning,
-          color: Colors.red,
+          title: 'Total Spoilage',
+          value: '${_networkStats.totalSpoiled}',
+          icon: Icons.delete_forever,
+          color: Colors.orange,
         ),
       ],
     );
@@ -827,7 +820,7 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 
   Widget _buildMobileBranchComparison() {
-    if (_branches.isEmpty) {
+    if (_branchStats.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -852,11 +845,9 @@ class _ReportsPageState extends State<ReportsPage> {
       padding: const EdgeInsets.all(12),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
-        children: _branches.map((branch) {
-          final stats = _branchStats[branch.id] ?? {};
-          final sold = stats['sold'] ?? 0;
-          final maxSold = _totalSold > 0 ? _totalSold : 1;
-          final percentage = (sold / maxSold * 100).toInt();
+        children: _branchStats.map((branch) {
+          final maxRevenue = _networkStats.totalRevenue > 0 ? _networkStats.totalRevenue : 1;
+          final percentage = (branch.totalRevenue / maxRevenue * 100).clamp(0, 100).toInt();
 
           return Expanded(
             child: Padding(
@@ -865,10 +856,10 @@ class _ReportsPageState extends State<ReportsPage> {
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
                   Text(
-                    '$sold',
+                    '₱${_formatCurrency(branch.totalRevenue)}',
                     style: const TextStyle(
                       fontWeight: FontWeight.bold,
-                      fontSize: 12,
+                      fontSize: 10,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -900,7 +891,7 @@ class _ReportsPageState extends State<ReportsPage> {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    branch.name,
+                    branch.branchName,
                     style: const TextStyle(fontSize: 10),
                     textAlign: TextAlign.center,
                     maxLines: 1,
@@ -916,10 +907,21 @@ class _ReportsPageState extends State<ReportsPage> {
   }
 
   Widget _buildMobileBranchList() {
-    return Column(
-      children: _branches.map((branch) {
-        final stats = _branchStats[branch.id] ?? {};
+    if (_branchStats.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Center(
+          child: Text('No branch data available for this period'),
+        ),
+      );
+    }
 
+    return Column(
+      children: _branchStats.map((branch) {
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           padding: const EdgeInsets.all(16),
@@ -935,7 +937,7 @@ class _ReportsPageState extends State<ReportsPage> {
                 children: [
                   Expanded(
                     child: Text(
-                      branch.name,
+                      branch.branchName,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -946,15 +948,13 @@ class _ReportsPageState extends State<ReportsPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: branch.isActive
-                          ? Colors.green.shade100
-                          : Colors.red.shade100,
+                      color: Colors.green.shade100,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      branch.isActive ? 'Active' : 'Inactive',
-                      style: TextStyle(
-                        color: branch.isActive ? Colors.green : Colors.red,
+                      '${branch.daysActive} days',
+                      style: const TextStyle(
+                        color: Colors.green,
                         fontSize: 12,
                       ),
                     ),
@@ -965,11 +965,9 @@ class _ReportsPageState extends State<ReportsPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildMobileStat('Items', '${stats['itemCount'] ?? 0}'),
-                  _buildMobileStat('Sold', '${stats['sold'] ?? 0}'),
-                  _buildMobileStat('Spoilage', '${stats['spoilage'] ?? 0}'),
-                  _buildMobileStat('Low Stock', '${stats['lowStock'] ?? 0}',
-                      hasWarning: (stats['lowStock'] ?? 0) > 0),
+                  _buildMobileStat('Revenue', '₱${_formatCurrency(branch.totalRevenue)}'),
+                  _buildMobileStat('Sold', '${branch.totalSold}'),
+                  _buildMobileStat('Profit', '₱${_formatCurrency(branch.totalProfit)}'),
                 ],
               ),
             ],
@@ -1008,10 +1006,8 @@ class _ReportsPageState extends State<ReportsPage> {
     );
   }
 
-  Widget _buildMobileBranchDetails(Organization branch) {
-    final items = _branchItems[branch.id] ?? [];
-
-    if (items.isEmpty) {
+  Widget _buildMobileBranchDetails() {
+    if (_selectedBranchDailyData.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
@@ -1019,14 +1015,14 @@ class _ReportsPageState extends State<ReportsPage> {
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Center(
-          child: Text('No items found for this branch'),
+          child: Text('No sales data found for this branch'),
         ),
       );
     }
 
     return Column(
-      children: items.map((item) {
-        final isLowStock = item.stock <= item.criticalLevel;
+      children: _selectedBranchDailyData.map((summary) {
+        final dateStr = '${summary.summaryDate.month}/${summary.summaryDate.day}/${summary.summaryDate.year}';
 
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
@@ -1043,7 +1039,7 @@ class _ReportsPageState extends State<ReportsPage> {
                 children: [
                   Expanded(
                     child: Text(
-                      item.name,
+                      dateStr,
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -1054,15 +1050,15 @@ class _ReportsPageState extends State<ReportsPage> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
-                      color: isLowStock
-                          ? Colors.orange.shade100
-                          : Colors.green.shade100,
+                      color: summary.totalProfit >= 0
+                          ? Colors.green.shade100
+                          : Colors.red.shade100,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
-                      isLowStock ? 'Low Stock' : 'OK',
+                      summary.totalProfit >= 0 ? 'Profit' : 'Loss',
                       style: TextStyle(
-                        color: isLowStock ? Colors.orange : Colors.green,
+                        color: summary.totalProfit >= 0 ? Colors.green : Colors.red,
                         fontSize: 12,
                       ),
                     ),
@@ -1073,9 +1069,9 @@ class _ReportsPageState extends State<ReportsPage> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
-                  _buildMobileStat('Stock', '${item.stock}', hasWarning: isLowStock),
-                  _buildMobileStat('Sold', '${item.sold}'),
-                  _buildMobileStat('Spoilage', '${item.spoilage}'),
+                  _buildMobileStat('Revenue', '₱${_formatCurrency(summary.totalRevenue)}'),
+                  _buildMobileStat('Sold', '${summary.totalSold}'),
+                  _buildMobileStat('Profit', '₱${_formatCurrency(summary.totalProfit)}'),
                 ],
               ),
             ],

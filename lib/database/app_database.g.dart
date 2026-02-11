@@ -8383,6 +8383,1016 @@ class BranchItemStockCompanion extends UpdateCompanion<BranchItemStockData> {
   }
 }
 
+class $DailySalesSummaryTable extends DailySalesSummary
+    with TableInfo<$DailySalesSummaryTable, DailySalesSummaryData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $DailySalesSummaryTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _cloudIdMeta = const VerificationMeta(
+    'cloudId',
+  );
+  @override
+  late final GeneratedColumn<String> cloudId = GeneratedColumn<String>(
+    'cloud_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('UNIQUE'),
+  );
+  static const VerificationMeta _organizationIdMeta = const VerificationMeta(
+    'organizationId',
+  );
+  @override
+  late final GeneratedColumn<String> organizationId = GeneratedColumn<String>(
+    'organization_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _itemIdMeta = const VerificationMeta('itemId');
+  @override
+  late final GeneratedColumn<String> itemId = GeneratedColumn<String>(
+    'item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _summaryDateMeta = const VerificationMeta(
+    'summaryDate',
+  );
+  @override
+  late final GeneratedColumn<DateTime> summaryDate = GeneratedColumn<DateTime>(
+    'summary_date',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _quantitySoldMeta = const VerificationMeta(
+    'quantitySold',
+  );
+  @override
+  late final GeneratedColumn<int> quantitySold = GeneratedColumn<int>(
+    'quantity_sold',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _quantitySpoiledMeta = const VerificationMeta(
+    'quantitySpoiled',
+  );
+  @override
+  late final GeneratedColumn<int> quantitySpoiled = GeneratedColumn<int>(
+    'quantity_spoiled',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _revenueMeta = const VerificationMeta(
+    'revenue',
+  );
+  @override
+  late final GeneratedColumn<double> revenue = GeneratedColumn<double>(
+    'revenue',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _costOfGoodsSoldMeta = const VerificationMeta(
+    'costOfGoodsSold',
+  );
+  @override
+  late final GeneratedColumn<double> costOfGoodsSold = GeneratedColumn<double>(
+    'cost_of_goods_sold',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _grossProfitMeta = const VerificationMeta(
+    'grossProfit',
+  );
+  @override
+  late final GeneratedColumn<double> grossProfit = GeneratedColumn<double>(
+    'gross_profit',
+    aliasedName,
+    false,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0.0),
+  );
+  static const VerificationMeta _transactionCountMeta = const VerificationMeta(
+    'transactionCount',
+  );
+  @override
+  late final GeneratedColumn<int> transactionCount = GeneratedColumn<int>(
+    'transaction_count',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _openingStockMeta = const VerificationMeta(
+    'openingStock',
+  );
+  @override
+  late final GeneratedColumn<int> openingStock = GeneratedColumn<int>(
+    'opening_stock',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _closingStockMeta = const VerificationMeta(
+    'closingStock',
+  );
+  @override
+  late final GeneratedColumn<int> closingStock = GeneratedColumn<int>(
+    'closing_stock',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    clientDefault: () => DateTime.now(),
+  );
+  static const VerificationMeta _lastUpdatedMeta = const VerificationMeta(
+    'lastUpdated',
+  );
+  @override
+  late final GeneratedColumn<DateTime> lastUpdated = GeneratedColumn<DateTime>(
+    'last_updated',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    clientDefault: () => DateTime.now(),
+  );
+  static const VerificationMeta _isSyncedMeta = const VerificationMeta(
+    'isSynced',
+  );
+  @override
+  late final GeneratedColumn<bool> isSynced = GeneratedColumn<bool>(
+    'is_synced',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_synced" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _isDeletedMeta = const VerificationMeta(
+    'isDeleted',
+  );
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+    'is_deleted',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("is_deleted" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    cloudId,
+    organizationId,
+    itemId,
+    summaryDate,
+    quantitySold,
+    quantitySpoiled,
+    revenue,
+    costOfGoodsSold,
+    grossProfit,
+    transactionCount,
+    openingStock,
+    closingStock,
+    createdAt,
+    lastUpdated,
+    isSynced,
+    isDeleted,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'daily_sales_summary';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<DailySalesSummaryData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('cloud_id')) {
+      context.handle(
+        _cloudIdMeta,
+        cloudId.isAcceptableOrUnknown(data['cloud_id']!, _cloudIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cloudIdMeta);
+    }
+    if (data.containsKey('organization_id')) {
+      context.handle(
+        _organizationIdMeta,
+        organizationId.isAcceptableOrUnknown(
+          data['organization_id']!,
+          _organizationIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_organizationIdMeta);
+    }
+    if (data.containsKey('item_id')) {
+      context.handle(
+        _itemIdMeta,
+        itemId.isAcceptableOrUnknown(data['item_id']!, _itemIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_itemIdMeta);
+    }
+    if (data.containsKey('summary_date')) {
+      context.handle(
+        _summaryDateMeta,
+        summaryDate.isAcceptableOrUnknown(
+          data['summary_date']!,
+          _summaryDateMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_summaryDateMeta);
+    }
+    if (data.containsKey('quantity_sold')) {
+      context.handle(
+        _quantitySoldMeta,
+        quantitySold.isAcceptableOrUnknown(
+          data['quantity_sold']!,
+          _quantitySoldMeta,
+        ),
+      );
+    }
+    if (data.containsKey('quantity_spoiled')) {
+      context.handle(
+        _quantitySpoiledMeta,
+        quantitySpoiled.isAcceptableOrUnknown(
+          data['quantity_spoiled']!,
+          _quantitySpoiledMeta,
+        ),
+      );
+    }
+    if (data.containsKey('revenue')) {
+      context.handle(
+        _revenueMeta,
+        revenue.isAcceptableOrUnknown(data['revenue']!, _revenueMeta),
+      );
+    }
+    if (data.containsKey('cost_of_goods_sold')) {
+      context.handle(
+        _costOfGoodsSoldMeta,
+        costOfGoodsSold.isAcceptableOrUnknown(
+          data['cost_of_goods_sold']!,
+          _costOfGoodsSoldMeta,
+        ),
+      );
+    }
+    if (data.containsKey('gross_profit')) {
+      context.handle(
+        _grossProfitMeta,
+        grossProfit.isAcceptableOrUnknown(
+          data['gross_profit']!,
+          _grossProfitMeta,
+        ),
+      );
+    }
+    if (data.containsKey('transaction_count')) {
+      context.handle(
+        _transactionCountMeta,
+        transactionCount.isAcceptableOrUnknown(
+          data['transaction_count']!,
+          _transactionCountMeta,
+        ),
+      );
+    }
+    if (data.containsKey('opening_stock')) {
+      context.handle(
+        _openingStockMeta,
+        openingStock.isAcceptableOrUnknown(
+          data['opening_stock']!,
+          _openingStockMeta,
+        ),
+      );
+    }
+    if (data.containsKey('closing_stock')) {
+      context.handle(
+        _closingStockMeta,
+        closingStock.isAcceptableOrUnknown(
+          data['closing_stock']!,
+          _closingStockMeta,
+        ),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    if (data.containsKey('last_updated')) {
+      context.handle(
+        _lastUpdatedMeta,
+        lastUpdated.isAcceptableOrUnknown(
+          data['last_updated']!,
+          _lastUpdatedMeta,
+        ),
+      );
+    }
+    if (data.containsKey('is_synced')) {
+      context.handle(
+        _isSyncedMeta,
+        isSynced.isAcceptableOrUnknown(data['is_synced']!, _isSyncedMeta),
+      );
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(
+        _isDeletedMeta,
+        isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  List<Set<GeneratedColumn>> get uniqueKeys => [
+    {organizationId, itemId, summaryDate},
+  ];
+  @override
+  DailySalesSummaryData map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return DailySalesSummaryData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      cloudId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}cloud_id'],
+      )!,
+      organizationId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}organization_id'],
+      )!,
+      itemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}item_id'],
+      )!,
+      summaryDate: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}summary_date'],
+      )!,
+      quantitySold: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}quantity_sold'],
+      )!,
+      quantitySpoiled: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}quantity_spoiled'],
+      )!,
+      revenue: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}revenue'],
+      )!,
+      costOfGoodsSold: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}cost_of_goods_sold'],
+      )!,
+      grossProfit: attachedDatabase.typeMapping.read(
+        DriftSqlType.double,
+        data['${effectivePrefix}gross_profit'],
+      )!,
+      transactionCount: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}transaction_count'],
+      )!,
+      openingStock: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}opening_stock'],
+      ),
+      closingStock: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}closing_stock'],
+      ),
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+      lastUpdated: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}last_updated'],
+      )!,
+      isSynced: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_synced'],
+      )!,
+      isDeleted: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}is_deleted'],
+      )!,
+    );
+  }
+
+  @override
+  $DailySalesSummaryTable createAlias(String alias) {
+    return $DailySalesSummaryTable(attachedDatabase, alias);
+  }
+}
+
+class DailySalesSummaryData extends DataClass
+    implements Insertable<DailySalesSummaryData> {
+  /// Local primary key
+  final int id;
+
+  /// Cloud sync key (UUID v4) - generated once on first create, reused on updates
+  final String cloudId;
+
+  /// Which branch this summary belongs to (TEXT UUID to match Supabase)
+  final String organizationId;
+
+  /// Which item this summary is for (TEXT UUID to match Supabase)
+  final String itemId;
+
+  /// The date this summary covers (date only, no time component)
+  /// Must be normalized to midnight UTC or local date for consistency
+  final DateTime summaryDate;
+
+  /// Total quantity sold on this date
+  final int quantitySold;
+
+  /// Total quantity spoiled on this date
+  final int quantitySpoiled;
+
+  /// Total revenue from sales (sum of quantity * unit_price at sale time)
+  final double revenue;
+
+  /// Total cost of goods sold and spoiled (sum of quantity * unit_cost at transaction time)
+  final double costOfGoodsSold;
+
+  /// Gross profit = revenue - cost_of_goods_sold
+  /// Note: Spoilage decreases this (cost without revenue)
+  final double grossProfit;
+
+  /// Number of sale transactions (not spoilage) on this date
+  final int transactionCount;
+
+  /// Stock level at the beginning of this date (before first transaction)
+  /// Set on first sale/spoilage event of the day
+  final int? openingStock;
+
+  /// Stock level at the end of this date (after all transactions)
+  /// Updated after each sale/spoilage event
+  final int? closingStock;
+  final DateTime createdAt;
+  final DateTime lastUpdated;
+
+  /// Whether this record has been synced to cloud
+  final bool isSynced;
+
+  /// Soft delete flag
+  final bool isDeleted;
+  const DailySalesSummaryData({
+    required this.id,
+    required this.cloudId,
+    required this.organizationId,
+    required this.itemId,
+    required this.summaryDate,
+    required this.quantitySold,
+    required this.quantitySpoiled,
+    required this.revenue,
+    required this.costOfGoodsSold,
+    required this.grossProfit,
+    required this.transactionCount,
+    this.openingStock,
+    this.closingStock,
+    required this.createdAt,
+    required this.lastUpdated,
+    required this.isSynced,
+    required this.isDeleted,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['cloud_id'] = Variable<String>(cloudId);
+    map['organization_id'] = Variable<String>(organizationId);
+    map['item_id'] = Variable<String>(itemId);
+    map['summary_date'] = Variable<DateTime>(summaryDate);
+    map['quantity_sold'] = Variable<int>(quantitySold);
+    map['quantity_spoiled'] = Variable<int>(quantitySpoiled);
+    map['revenue'] = Variable<double>(revenue);
+    map['cost_of_goods_sold'] = Variable<double>(costOfGoodsSold);
+    map['gross_profit'] = Variable<double>(grossProfit);
+    map['transaction_count'] = Variable<int>(transactionCount);
+    if (!nullToAbsent || openingStock != null) {
+      map['opening_stock'] = Variable<int>(openingStock);
+    }
+    if (!nullToAbsent || closingStock != null) {
+      map['closing_stock'] = Variable<int>(closingStock);
+    }
+    map['created_at'] = Variable<DateTime>(createdAt);
+    map['last_updated'] = Variable<DateTime>(lastUpdated);
+    map['is_synced'] = Variable<bool>(isSynced);
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    return map;
+  }
+
+  DailySalesSummaryCompanion toCompanion(bool nullToAbsent) {
+    return DailySalesSummaryCompanion(
+      id: Value(id),
+      cloudId: Value(cloudId),
+      organizationId: Value(organizationId),
+      itemId: Value(itemId),
+      summaryDate: Value(summaryDate),
+      quantitySold: Value(quantitySold),
+      quantitySpoiled: Value(quantitySpoiled),
+      revenue: Value(revenue),
+      costOfGoodsSold: Value(costOfGoodsSold),
+      grossProfit: Value(grossProfit),
+      transactionCount: Value(transactionCount),
+      openingStock: openingStock == null && nullToAbsent
+          ? const Value.absent()
+          : Value(openingStock),
+      closingStock: closingStock == null && nullToAbsent
+          ? const Value.absent()
+          : Value(closingStock),
+      createdAt: Value(createdAt),
+      lastUpdated: Value(lastUpdated),
+      isSynced: Value(isSynced),
+      isDeleted: Value(isDeleted),
+    );
+  }
+
+  factory DailySalesSummaryData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return DailySalesSummaryData(
+      id: serializer.fromJson<int>(json['id']),
+      cloudId: serializer.fromJson<String>(json['cloudId']),
+      organizationId: serializer.fromJson<String>(json['organizationId']),
+      itemId: serializer.fromJson<String>(json['itemId']),
+      summaryDate: serializer.fromJson<DateTime>(json['summaryDate']),
+      quantitySold: serializer.fromJson<int>(json['quantitySold']),
+      quantitySpoiled: serializer.fromJson<int>(json['quantitySpoiled']),
+      revenue: serializer.fromJson<double>(json['revenue']),
+      costOfGoodsSold: serializer.fromJson<double>(json['costOfGoodsSold']),
+      grossProfit: serializer.fromJson<double>(json['grossProfit']),
+      transactionCount: serializer.fromJson<int>(json['transactionCount']),
+      openingStock: serializer.fromJson<int?>(json['openingStock']),
+      closingStock: serializer.fromJson<int?>(json['closingStock']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      lastUpdated: serializer.fromJson<DateTime>(json['lastUpdated']),
+      isSynced: serializer.fromJson<bool>(json['isSynced']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'cloudId': serializer.toJson<String>(cloudId),
+      'organizationId': serializer.toJson<String>(organizationId),
+      'itemId': serializer.toJson<String>(itemId),
+      'summaryDate': serializer.toJson<DateTime>(summaryDate),
+      'quantitySold': serializer.toJson<int>(quantitySold),
+      'quantitySpoiled': serializer.toJson<int>(quantitySpoiled),
+      'revenue': serializer.toJson<double>(revenue),
+      'costOfGoodsSold': serializer.toJson<double>(costOfGoodsSold),
+      'grossProfit': serializer.toJson<double>(grossProfit),
+      'transactionCount': serializer.toJson<int>(transactionCount),
+      'openingStock': serializer.toJson<int?>(openingStock),
+      'closingStock': serializer.toJson<int?>(closingStock),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+      'lastUpdated': serializer.toJson<DateTime>(lastUpdated),
+      'isSynced': serializer.toJson<bool>(isSynced),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+    };
+  }
+
+  DailySalesSummaryData copyWith({
+    int? id,
+    String? cloudId,
+    String? organizationId,
+    String? itemId,
+    DateTime? summaryDate,
+    int? quantitySold,
+    int? quantitySpoiled,
+    double? revenue,
+    double? costOfGoodsSold,
+    double? grossProfit,
+    int? transactionCount,
+    Value<int?> openingStock = const Value.absent(),
+    Value<int?> closingStock = const Value.absent(),
+    DateTime? createdAt,
+    DateTime? lastUpdated,
+    bool? isSynced,
+    bool? isDeleted,
+  }) => DailySalesSummaryData(
+    id: id ?? this.id,
+    cloudId: cloudId ?? this.cloudId,
+    organizationId: organizationId ?? this.organizationId,
+    itemId: itemId ?? this.itemId,
+    summaryDate: summaryDate ?? this.summaryDate,
+    quantitySold: quantitySold ?? this.quantitySold,
+    quantitySpoiled: quantitySpoiled ?? this.quantitySpoiled,
+    revenue: revenue ?? this.revenue,
+    costOfGoodsSold: costOfGoodsSold ?? this.costOfGoodsSold,
+    grossProfit: grossProfit ?? this.grossProfit,
+    transactionCount: transactionCount ?? this.transactionCount,
+    openingStock: openingStock.present ? openingStock.value : this.openingStock,
+    closingStock: closingStock.present ? closingStock.value : this.closingStock,
+    createdAt: createdAt ?? this.createdAt,
+    lastUpdated: lastUpdated ?? this.lastUpdated,
+    isSynced: isSynced ?? this.isSynced,
+    isDeleted: isDeleted ?? this.isDeleted,
+  );
+  DailySalesSummaryData copyWithCompanion(DailySalesSummaryCompanion data) {
+    return DailySalesSummaryData(
+      id: data.id.present ? data.id.value : this.id,
+      cloudId: data.cloudId.present ? data.cloudId.value : this.cloudId,
+      organizationId: data.organizationId.present
+          ? data.organizationId.value
+          : this.organizationId,
+      itemId: data.itemId.present ? data.itemId.value : this.itemId,
+      summaryDate: data.summaryDate.present
+          ? data.summaryDate.value
+          : this.summaryDate,
+      quantitySold: data.quantitySold.present
+          ? data.quantitySold.value
+          : this.quantitySold,
+      quantitySpoiled: data.quantitySpoiled.present
+          ? data.quantitySpoiled.value
+          : this.quantitySpoiled,
+      revenue: data.revenue.present ? data.revenue.value : this.revenue,
+      costOfGoodsSold: data.costOfGoodsSold.present
+          ? data.costOfGoodsSold.value
+          : this.costOfGoodsSold,
+      grossProfit: data.grossProfit.present
+          ? data.grossProfit.value
+          : this.grossProfit,
+      transactionCount: data.transactionCount.present
+          ? data.transactionCount.value
+          : this.transactionCount,
+      openingStock: data.openingStock.present
+          ? data.openingStock.value
+          : this.openingStock,
+      closingStock: data.closingStock.present
+          ? data.closingStock.value
+          : this.closingStock,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      lastUpdated: data.lastUpdated.present
+          ? data.lastUpdated.value
+          : this.lastUpdated,
+      isSynced: data.isSynced.present ? data.isSynced.value : this.isSynced,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DailySalesSummaryData(')
+          ..write('id: $id, ')
+          ..write('cloudId: $cloudId, ')
+          ..write('organizationId: $organizationId, ')
+          ..write('itemId: $itemId, ')
+          ..write('summaryDate: $summaryDate, ')
+          ..write('quantitySold: $quantitySold, ')
+          ..write('quantitySpoiled: $quantitySpoiled, ')
+          ..write('revenue: $revenue, ')
+          ..write('costOfGoodsSold: $costOfGoodsSold, ')
+          ..write('grossProfit: $grossProfit, ')
+          ..write('transactionCount: $transactionCount, ')
+          ..write('openingStock: $openingStock, ')
+          ..write('closingStock: $closingStock, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastUpdated: $lastUpdated, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    cloudId,
+    organizationId,
+    itemId,
+    summaryDate,
+    quantitySold,
+    quantitySpoiled,
+    revenue,
+    costOfGoodsSold,
+    grossProfit,
+    transactionCount,
+    openingStock,
+    closingStock,
+    createdAt,
+    lastUpdated,
+    isSynced,
+    isDeleted,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is DailySalesSummaryData &&
+          other.id == this.id &&
+          other.cloudId == this.cloudId &&
+          other.organizationId == this.organizationId &&
+          other.itemId == this.itemId &&
+          other.summaryDate == this.summaryDate &&
+          other.quantitySold == this.quantitySold &&
+          other.quantitySpoiled == this.quantitySpoiled &&
+          other.revenue == this.revenue &&
+          other.costOfGoodsSold == this.costOfGoodsSold &&
+          other.grossProfit == this.grossProfit &&
+          other.transactionCount == this.transactionCount &&
+          other.openingStock == this.openingStock &&
+          other.closingStock == this.closingStock &&
+          other.createdAt == this.createdAt &&
+          other.lastUpdated == this.lastUpdated &&
+          other.isSynced == this.isSynced &&
+          other.isDeleted == this.isDeleted);
+}
+
+class DailySalesSummaryCompanion
+    extends UpdateCompanion<DailySalesSummaryData> {
+  final Value<int> id;
+  final Value<String> cloudId;
+  final Value<String> organizationId;
+  final Value<String> itemId;
+  final Value<DateTime> summaryDate;
+  final Value<int> quantitySold;
+  final Value<int> quantitySpoiled;
+  final Value<double> revenue;
+  final Value<double> costOfGoodsSold;
+  final Value<double> grossProfit;
+  final Value<int> transactionCount;
+  final Value<int?> openingStock;
+  final Value<int?> closingStock;
+  final Value<DateTime> createdAt;
+  final Value<DateTime> lastUpdated;
+  final Value<bool> isSynced;
+  final Value<bool> isDeleted;
+  const DailySalesSummaryCompanion({
+    this.id = const Value.absent(),
+    this.cloudId = const Value.absent(),
+    this.organizationId = const Value.absent(),
+    this.itemId = const Value.absent(),
+    this.summaryDate = const Value.absent(),
+    this.quantitySold = const Value.absent(),
+    this.quantitySpoiled = const Value.absent(),
+    this.revenue = const Value.absent(),
+    this.costOfGoodsSold = const Value.absent(),
+    this.grossProfit = const Value.absent(),
+    this.transactionCount = const Value.absent(),
+    this.openingStock = const Value.absent(),
+    this.closingStock = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastUpdated = const Value.absent(),
+    this.isSynced = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+  });
+  DailySalesSummaryCompanion.insert({
+    this.id = const Value.absent(),
+    required String cloudId,
+    required String organizationId,
+    required String itemId,
+    required DateTime summaryDate,
+    this.quantitySold = const Value.absent(),
+    this.quantitySpoiled = const Value.absent(),
+    this.revenue = const Value.absent(),
+    this.costOfGoodsSold = const Value.absent(),
+    this.grossProfit = const Value.absent(),
+    this.transactionCount = const Value.absent(),
+    this.openingStock = const Value.absent(),
+    this.closingStock = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.lastUpdated = const Value.absent(),
+    this.isSynced = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+  }) : cloudId = Value(cloudId),
+       organizationId = Value(organizationId),
+       itemId = Value(itemId),
+       summaryDate = Value(summaryDate);
+  static Insertable<DailySalesSummaryData> custom({
+    Expression<int>? id,
+    Expression<String>? cloudId,
+    Expression<String>? organizationId,
+    Expression<String>? itemId,
+    Expression<DateTime>? summaryDate,
+    Expression<int>? quantitySold,
+    Expression<int>? quantitySpoiled,
+    Expression<double>? revenue,
+    Expression<double>? costOfGoodsSold,
+    Expression<double>? grossProfit,
+    Expression<int>? transactionCount,
+    Expression<int>? openingStock,
+    Expression<int>? closingStock,
+    Expression<DateTime>? createdAt,
+    Expression<DateTime>? lastUpdated,
+    Expression<bool>? isSynced,
+    Expression<bool>? isDeleted,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (cloudId != null) 'cloud_id': cloudId,
+      if (organizationId != null) 'organization_id': organizationId,
+      if (itemId != null) 'item_id': itemId,
+      if (summaryDate != null) 'summary_date': summaryDate,
+      if (quantitySold != null) 'quantity_sold': quantitySold,
+      if (quantitySpoiled != null) 'quantity_spoiled': quantitySpoiled,
+      if (revenue != null) 'revenue': revenue,
+      if (costOfGoodsSold != null) 'cost_of_goods_sold': costOfGoodsSold,
+      if (grossProfit != null) 'gross_profit': grossProfit,
+      if (transactionCount != null) 'transaction_count': transactionCount,
+      if (openingStock != null) 'opening_stock': openingStock,
+      if (closingStock != null) 'closing_stock': closingStock,
+      if (createdAt != null) 'created_at': createdAt,
+      if (lastUpdated != null) 'last_updated': lastUpdated,
+      if (isSynced != null) 'is_synced': isSynced,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+    });
+  }
+
+  DailySalesSummaryCompanion copyWith({
+    Value<int>? id,
+    Value<String>? cloudId,
+    Value<String>? organizationId,
+    Value<String>? itemId,
+    Value<DateTime>? summaryDate,
+    Value<int>? quantitySold,
+    Value<int>? quantitySpoiled,
+    Value<double>? revenue,
+    Value<double>? costOfGoodsSold,
+    Value<double>? grossProfit,
+    Value<int>? transactionCount,
+    Value<int?>? openingStock,
+    Value<int?>? closingStock,
+    Value<DateTime>? createdAt,
+    Value<DateTime>? lastUpdated,
+    Value<bool>? isSynced,
+    Value<bool>? isDeleted,
+  }) {
+    return DailySalesSummaryCompanion(
+      id: id ?? this.id,
+      cloudId: cloudId ?? this.cloudId,
+      organizationId: organizationId ?? this.organizationId,
+      itemId: itemId ?? this.itemId,
+      summaryDate: summaryDate ?? this.summaryDate,
+      quantitySold: quantitySold ?? this.quantitySold,
+      quantitySpoiled: quantitySpoiled ?? this.quantitySpoiled,
+      revenue: revenue ?? this.revenue,
+      costOfGoodsSold: costOfGoodsSold ?? this.costOfGoodsSold,
+      grossProfit: grossProfit ?? this.grossProfit,
+      transactionCount: transactionCount ?? this.transactionCount,
+      openingStock: openingStock ?? this.openingStock,
+      closingStock: closingStock ?? this.closingStock,
+      createdAt: createdAt ?? this.createdAt,
+      lastUpdated: lastUpdated ?? this.lastUpdated,
+      isSynced: isSynced ?? this.isSynced,
+      isDeleted: isDeleted ?? this.isDeleted,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (cloudId.present) {
+      map['cloud_id'] = Variable<String>(cloudId.value);
+    }
+    if (organizationId.present) {
+      map['organization_id'] = Variable<String>(organizationId.value);
+    }
+    if (itemId.present) {
+      map['item_id'] = Variable<String>(itemId.value);
+    }
+    if (summaryDate.present) {
+      map['summary_date'] = Variable<DateTime>(summaryDate.value);
+    }
+    if (quantitySold.present) {
+      map['quantity_sold'] = Variable<int>(quantitySold.value);
+    }
+    if (quantitySpoiled.present) {
+      map['quantity_spoiled'] = Variable<int>(quantitySpoiled.value);
+    }
+    if (revenue.present) {
+      map['revenue'] = Variable<double>(revenue.value);
+    }
+    if (costOfGoodsSold.present) {
+      map['cost_of_goods_sold'] = Variable<double>(costOfGoodsSold.value);
+    }
+    if (grossProfit.present) {
+      map['gross_profit'] = Variable<double>(grossProfit.value);
+    }
+    if (transactionCount.present) {
+      map['transaction_count'] = Variable<int>(transactionCount.value);
+    }
+    if (openingStock.present) {
+      map['opening_stock'] = Variable<int>(openingStock.value);
+    }
+    if (closingStock.present) {
+      map['closing_stock'] = Variable<int>(closingStock.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (lastUpdated.present) {
+      map['last_updated'] = Variable<DateTime>(lastUpdated.value);
+    }
+    if (isSynced.present) {
+      map['is_synced'] = Variable<bool>(isSynced.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('DailySalesSummaryCompanion(')
+          ..write('id: $id, ')
+          ..write('cloudId: $cloudId, ')
+          ..write('organizationId: $organizationId, ')
+          ..write('itemId: $itemId, ')
+          ..write('summaryDate: $summaryDate, ')
+          ..write('quantitySold: $quantitySold, ')
+          ..write('quantitySpoiled: $quantitySpoiled, ')
+          ..write('revenue: $revenue, ')
+          ..write('costOfGoodsSold: $costOfGoodsSold, ')
+          ..write('grossProfit: $grossProfit, ')
+          ..write('transactionCount: $transactionCount, ')
+          ..write('openingStock: $openingStock, ')
+          ..write('closingStock: $closingStock, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('lastUpdated: $lastUpdated, ')
+          ..write('isSynced: $isSynced, ')
+          ..write('isDeleted: $isDeleted')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -8401,6 +9411,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $BranchItemStockTable branchItemStock = $BranchItemStockTable(
     this,
   );
+  late final $DailySalesSummaryTable dailySalesSummary =
+      $DailySalesSummaryTable(this);
   late final OrganizationsDao organizationsDao = OrganizationsDao(
     this as AppDatabase,
   );
@@ -8421,6 +9433,9 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final BranchItemStockDao branchItemStockDao = BranchItemStockDao(
     this as AppDatabase,
   );
+  late final DailySalesSummaryDao dailySalesSummaryDao = DailySalesSummaryDao(
+    this as AppDatabase,
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -8436,6 +9451,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     stockReplenishmentRequests,
     stockChangeRequests,
     branchItemStock,
+    dailySalesSummary,
   ];
 }
 
@@ -13808,6 +14824,461 @@ typedef $$BranchItemStockTableProcessedTableManager =
       BranchItemStockData,
       PrefetchHooks Function({bool organizationId, bool itemId})
     >;
+typedef $$DailySalesSummaryTableCreateCompanionBuilder =
+    DailySalesSummaryCompanion Function({
+      Value<int> id,
+      required String cloudId,
+      required String organizationId,
+      required String itemId,
+      required DateTime summaryDate,
+      Value<int> quantitySold,
+      Value<int> quantitySpoiled,
+      Value<double> revenue,
+      Value<double> costOfGoodsSold,
+      Value<double> grossProfit,
+      Value<int> transactionCount,
+      Value<int?> openingStock,
+      Value<int?> closingStock,
+      Value<DateTime> createdAt,
+      Value<DateTime> lastUpdated,
+      Value<bool> isSynced,
+      Value<bool> isDeleted,
+    });
+typedef $$DailySalesSummaryTableUpdateCompanionBuilder =
+    DailySalesSummaryCompanion Function({
+      Value<int> id,
+      Value<String> cloudId,
+      Value<String> organizationId,
+      Value<String> itemId,
+      Value<DateTime> summaryDate,
+      Value<int> quantitySold,
+      Value<int> quantitySpoiled,
+      Value<double> revenue,
+      Value<double> costOfGoodsSold,
+      Value<double> grossProfit,
+      Value<int> transactionCount,
+      Value<int?> openingStock,
+      Value<int?> closingStock,
+      Value<DateTime> createdAt,
+      Value<DateTime> lastUpdated,
+      Value<bool> isSynced,
+      Value<bool> isDeleted,
+    });
+
+class $$DailySalesSummaryTableFilterComposer
+    extends Composer<_$AppDatabase, $DailySalesSummaryTable> {
+  $$DailySalesSummaryTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cloudId => $composableBuilder(
+    column: $table.cloudId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get organizationId => $composableBuilder(
+    column: $table.organizationId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get itemId => $composableBuilder(
+    column: $table.itemId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get summaryDate => $composableBuilder(
+    column: $table.summaryDate,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get quantitySold => $composableBuilder(
+    column: $table.quantitySold,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get quantitySpoiled => $composableBuilder(
+    column: $table.quantitySpoiled,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get revenue => $composableBuilder(
+    column: $table.revenue,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get costOfGoodsSold => $composableBuilder(
+    column: $table.costOfGoodsSold,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<double> get grossProfit => $composableBuilder(
+    column: $table.grossProfit,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get transactionCount => $composableBuilder(
+    column: $table.transactionCount,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get openingStock => $composableBuilder(
+    column: $table.openingStock,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get closingStock => $composableBuilder(
+    column: $table.closingStock,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get lastUpdated => $composableBuilder(
+    column: $table.lastUpdated,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$DailySalesSummaryTableOrderingComposer
+    extends Composer<_$AppDatabase, $DailySalesSummaryTable> {
+  $$DailySalesSummaryTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cloudId => $composableBuilder(
+    column: $table.cloudId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get organizationId => $composableBuilder(
+    column: $table.organizationId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get itemId => $composableBuilder(
+    column: $table.itemId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get summaryDate => $composableBuilder(
+    column: $table.summaryDate,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get quantitySold => $composableBuilder(
+    column: $table.quantitySold,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get quantitySpoiled => $composableBuilder(
+    column: $table.quantitySpoiled,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get revenue => $composableBuilder(
+    column: $table.revenue,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get costOfGoodsSold => $composableBuilder(
+    column: $table.costOfGoodsSold,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<double> get grossProfit => $composableBuilder(
+    column: $table.grossProfit,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get transactionCount => $composableBuilder(
+    column: $table.transactionCount,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get openingStock => $composableBuilder(
+    column: $table.openingStock,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get closingStock => $composableBuilder(
+    column: $table.closingStock,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get lastUpdated => $composableBuilder(
+    column: $table.lastUpdated,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isSynced => $composableBuilder(
+    column: $table.isSynced,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+    column: $table.isDeleted,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$DailySalesSummaryTableAnnotationComposer
+    extends Composer<_$AppDatabase, $DailySalesSummaryTable> {
+  $$DailySalesSummaryTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get cloudId =>
+      $composableBuilder(column: $table.cloudId, builder: (column) => column);
+
+  GeneratedColumn<String> get organizationId => $composableBuilder(
+    column: $table.organizationId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get itemId =>
+      $composableBuilder(column: $table.itemId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get summaryDate => $composableBuilder(
+    column: $table.summaryDate,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get quantitySold => $composableBuilder(
+    column: $table.quantitySold,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get quantitySpoiled => $composableBuilder(
+    column: $table.quantitySpoiled,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get revenue =>
+      $composableBuilder(column: $table.revenue, builder: (column) => column);
+
+  GeneratedColumn<double> get costOfGoodsSold => $composableBuilder(
+    column: $table.costOfGoodsSold,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<double> get grossProfit => $composableBuilder(
+    column: $table.grossProfit,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get transactionCount => $composableBuilder(
+    column: $table.transactionCount,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get openingStock => $composableBuilder(
+    column: $table.openingStock,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get closingStock => $composableBuilder(
+    column: $table.closingStock,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get lastUpdated => $composableBuilder(
+    column: $table.lastUpdated,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get isSynced =>
+      $composableBuilder(column: $table.isSynced, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+}
+
+class $$DailySalesSummaryTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $DailySalesSummaryTable,
+          DailySalesSummaryData,
+          $$DailySalesSummaryTableFilterComposer,
+          $$DailySalesSummaryTableOrderingComposer,
+          $$DailySalesSummaryTableAnnotationComposer,
+          $$DailySalesSummaryTableCreateCompanionBuilder,
+          $$DailySalesSummaryTableUpdateCompanionBuilder,
+          (
+            DailySalesSummaryData,
+            BaseReferences<
+              _$AppDatabase,
+              $DailySalesSummaryTable,
+              DailySalesSummaryData
+            >,
+          ),
+          DailySalesSummaryData,
+          PrefetchHooks Function()
+        > {
+  $$DailySalesSummaryTableTableManager(
+    _$AppDatabase db,
+    $DailySalesSummaryTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$DailySalesSummaryTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$DailySalesSummaryTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$DailySalesSummaryTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<String> cloudId = const Value.absent(),
+                Value<String> organizationId = const Value.absent(),
+                Value<String> itemId = const Value.absent(),
+                Value<DateTime> summaryDate = const Value.absent(),
+                Value<int> quantitySold = const Value.absent(),
+                Value<int> quantitySpoiled = const Value.absent(),
+                Value<double> revenue = const Value.absent(),
+                Value<double> costOfGoodsSold = const Value.absent(),
+                Value<double> grossProfit = const Value.absent(),
+                Value<int> transactionCount = const Value.absent(),
+                Value<int?> openingStock = const Value.absent(),
+                Value<int?> closingStock = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> lastUpdated = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+              }) => DailySalesSummaryCompanion(
+                id: id,
+                cloudId: cloudId,
+                organizationId: organizationId,
+                itemId: itemId,
+                summaryDate: summaryDate,
+                quantitySold: quantitySold,
+                quantitySpoiled: quantitySpoiled,
+                revenue: revenue,
+                costOfGoodsSold: costOfGoodsSold,
+                grossProfit: grossProfit,
+                transactionCount: transactionCount,
+                openingStock: openingStock,
+                closingStock: closingStock,
+                createdAt: createdAt,
+                lastUpdated: lastUpdated,
+                isSynced: isSynced,
+                isDeleted: isDeleted,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required String cloudId,
+                required String organizationId,
+                required String itemId,
+                required DateTime summaryDate,
+                Value<int> quantitySold = const Value.absent(),
+                Value<int> quantitySpoiled = const Value.absent(),
+                Value<double> revenue = const Value.absent(),
+                Value<double> costOfGoodsSold = const Value.absent(),
+                Value<double> grossProfit = const Value.absent(),
+                Value<int> transactionCount = const Value.absent(),
+                Value<int?> openingStock = const Value.absent(),
+                Value<int?> closingStock = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<DateTime> lastUpdated = const Value.absent(),
+                Value<bool> isSynced = const Value.absent(),
+                Value<bool> isDeleted = const Value.absent(),
+              }) => DailySalesSummaryCompanion.insert(
+                id: id,
+                cloudId: cloudId,
+                organizationId: organizationId,
+                itemId: itemId,
+                summaryDate: summaryDate,
+                quantitySold: quantitySold,
+                quantitySpoiled: quantitySpoiled,
+                revenue: revenue,
+                costOfGoodsSold: costOfGoodsSold,
+                grossProfit: grossProfit,
+                transactionCount: transactionCount,
+                openingStock: openingStock,
+                closingStock: closingStock,
+                createdAt: createdAt,
+                lastUpdated: lastUpdated,
+                isSynced: isSynced,
+                isDeleted: isDeleted,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$DailySalesSummaryTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $DailySalesSummaryTable,
+      DailySalesSummaryData,
+      $$DailySalesSummaryTableFilterComposer,
+      $$DailySalesSummaryTableOrderingComposer,
+      $$DailySalesSummaryTableAnnotationComposer,
+      $$DailySalesSummaryTableCreateCompanionBuilder,
+      $$DailySalesSummaryTableUpdateCompanionBuilder,
+      (
+        DailySalesSummaryData,
+        BaseReferences<
+          _$AppDatabase,
+          $DailySalesSummaryTable,
+          DailySalesSummaryData
+        >,
+      ),
+      DailySalesSummaryData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -13836,4 +15307,6 @@ class $AppDatabaseManager {
       $$StockChangeRequestsTableTableManager(_db, _db.stockChangeRequests);
   $$BranchItemStockTableTableManager get branchItemStock =>
       $$BranchItemStockTableTableManager(_db, _db.branchItemStock);
+  $$DailySalesSummaryTableTableManager get dailySalesSummary =>
+      $$DailySalesSummaryTableTableManager(_db, _db.dailySalesSummary);
 }
