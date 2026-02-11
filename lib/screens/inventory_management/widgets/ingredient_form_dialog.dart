@@ -50,6 +50,135 @@ class _IngredientFormDialogState extends State<IngredientFormDialog> {
     'bags',
   ];
 
+  // Units that only accept whole numbers (no decimals)
+  static const _wholeNumberUnits = {
+    'pieces',
+    'packs',
+    'boxes',
+    'bottles',
+    'cans',
+    'bags',
+  };
+  // Conversion Rules:
+  // 1. Same group conversions use standard formulas (1 kg = 1000 g)
+  // 2. Cross-group conversions use default factors (TODO: update with actual formulas)
+  /// Unit groups for determining conversion compatibility
+  static const _unitGroups = {
+    'weight': ['grams', 'kilograms'],
+    'volume': ['milliliters', 'liters'],
+    'countable': ['pieces', 'packs', 'boxes', 'bottles', 'cans', 'bags'],
+  };
+
+  /// Standard conversion factors TO base unit within same group
+  /// - Weight base unit: grams
+  /// - Volume base unit: milliliters
+  /// - Countable base unit: pieces
+  static const _toBaseUnitFactor = {
+    // Weight conversions (to grams)
+    'grams': 1.0,
+    'kilograms': 1000.0,  // 1 kg = 1000 grams
+    
+    // Volume conversions (to milliliters)
+    'milliliters': 1.0,
+    'liters': 1000.0,     // 1 liter = 1000 ml
+    
+    // Countable conversions (to pieces)
+    // TODO: Update these when exact formulas are known
+    // Currently 1:1 default - each countable unit equals 1 piece
+    'pieces': 1.0,
+    'packs': 1.0,         // TODO: Define pack size (e.g., 1 pack = 12 pieces)
+    'boxes': 1.0,         // TODO: Define box size (e.g., 1 box = 24 pieces)
+    'bottles': 1.0,       // TODO: Define bottle equivalent
+    'cans': 1.0,          // TODO: Define can equivalent
+    'bags': 1.0,          // TODO: Define bag size
+  };
+  /// TODO: These are placeholder values - update with actual ingredient-specific conversions
+  /// Example: If 1 kg of flour = 8 cups, define the formula here
+  static const _crossGroupConversion = {
+    // Weight to Volume (assuming water density for now - 1g = 1ml)
+    // TODO: Update with actual density formulas
+    'weight_to_volume': 1.0,  // 1 gram = 1 ml (water density)
+    // Weight to Countable
+    // TODO: This needs ingredient-specific data (e.g., 1 chicken piece = 200g)
+    'weight_to_countable': 1.0,  // Placeholder: 1 gram = 1 piece (NEEDS UPDATE)
+    // Volume to Countable
+    // TODO: This needs ingredient-specific data (e.g., 1 bottle = 500ml)
+    'volume_to_countable': 1.0,  // Placeholder: 1 ml = 1 piece (NEEDS UPDATE)
+  };
+  /// Get the group name for a unit
+  String _getUnitGroup(String unit) {
+    for (final entry in _unitGroups.entries) {
+      if (entry.value.contains(unit.toLowerCase())) {
+        return entry.key;
+      }
+    }
+    return 'unknown';
+  }
+  /// Convert stock value from one unit to another
+  /// Returns the converted value with appropriate rounding for countable units
+  double _convertStock(double value, String fromUnit, String toUnit) {
+    fromUnit = fromUnit.toLowerCase();
+    toUnit = toUnit.toLowerCase();
+    
+    if (fromUnit == toUnit) return value;
+    
+    final fromGroup = _getUnitGroup(fromUnit);
+    final toGroup = _getUnitGroup(toUnit);
+    
+    // Get factors
+    final fromFactor = _toBaseUnitFactor[fromUnit] ?? 1.0;
+    final toFactor = _toBaseUnitFactor[toUnit] ?? 1.0;
+    
+    double result;
+    
+    if (fromGroup == toGroup) {
+      // Same group conversion (e.g., kg to grams, liters to ml)
+      // Formula: convert to base unit, then to target unit
+      // Example: 2 kg -> 2 * 1000 = 2000 grams -> 2000 / 1 = 2000 grams
+      // Example: 2 kg -> 2 * 1000 = 2000 grams -> 2000 / 1000 = 2 kg (back)
+      final baseValue = value * fromFactor;
+      result = baseValue / toFactor;
+    } else {
+      // Cross-group conversion
+      // Step 1: Convert from source unit to source base unit
+      final sourceBaseValue = value * fromFactor;
+      
+      // Step 2: Apply cross-group conversion
+      // TODO: Update these formulas when exact conversion rates are known
+      double crossGroupFactor;
+      if (fromGroup == 'weight' && toGroup == 'volume') {
+        crossGroupFactor = _crossGroupConversion['weight_to_volume']!;
+      } else if (fromGroup == 'volume' && toGroup == 'weight') {
+        crossGroupFactor = 1.0 / _crossGroupConversion['weight_to_volume']!;
+      } else if (fromGroup == 'weight' && toGroup == 'countable') {
+        crossGroupFactor = _crossGroupConversion['weight_to_countable']!;
+      } else if (fromGroup == 'countable' && toGroup == 'weight') {
+        crossGroupFactor = 1.0 / _crossGroupConversion['weight_to_countable']!;
+      } else if (fromGroup == 'volume' && toGroup == 'countable') {
+        crossGroupFactor = _crossGroupConversion['volume_to_countable']!;
+      } else if (fromGroup == 'countable' && toGroup == 'volume') {
+        crossGroupFactor = 1.0 / _crossGroupConversion['volume_to_countable']!;
+      } else {
+        crossGroupFactor = 1.0;
+      }
+      
+      final targetBaseValue = sourceBaseValue * crossGroupFactor;
+      
+      // Step 3: Convert from target base unit to target unit
+      result = targetBaseValue / toFactor;
+    }
+    
+    // Round to whole number if target is a countable unit
+    if (_wholeNumberUnits.contains(toUnit)) {
+      result = result.roundToDouble();
+    }
+    
+    return result;
+  }
+
+  bool get _requiresWholeNumber =>
+      _wholeNumberUnits.contains(_unitController.text.toLowerCase());
+
   // Number formatter for thousands separator
   static final _numberFormat = NumberFormat('#,##0.##');
 
@@ -205,7 +334,25 @@ class _IngredientFormDialogState extends State<IngredientFormDialog> {
                           icon: const Icon(Icons.arrow_drop_down_circle),
                           onSelected: (unit) {
                             setState(() {
+                              final previousUnit = _unitController.text;
                               _unitController.text = unit;
+                              
+                          
+                              // Converts stock value from previous unit to new unit
+                              // Example: 1 kg -> 1000 grams, 2 liters -> 2000 ml
+                              // Uses default 1:1 factor - TODO: update _crossGroupConversion
+                              // with actual formulas when known ref: line 101-106
+                              if (previousUnit.isNotEmpty) {
+                                final currentStock = double.tryParse(_removeCommas(_stockController.text)) ?? 0;
+                                if (currentStock > 0) {
+                                  final convertedStock = _convertStock(currentStock, previousUnit, unit);
+                                  _stockController.text = _formatWithCommas(
+                                    _wholeNumberUnits.contains(unit.toLowerCase())
+                                        ? convertedStock.toInt().toString()
+                                        : convertedStock.toString(),
+                                  );
+                                }
+                              }
                             });
                           },
                           itemBuilder: (context) => _commonUnits
@@ -271,13 +418,17 @@ class _IngredientFormDialogState extends State<IngredientFormDialog> {
                       // Current stock
                       Expanded(
                         child: TextFormField(
+                          // Key forces rebuild when unit type changes
+                          key: ValueKey('stock_${_requiresWholeNumber}'),
                           controller: _stockController,
-                          keyboardType: const TextInputType.numberWithOptions(
-                            decimal: true,
+                          keyboardType: TextInputType.numberWithOptions(
+                            decimal: !_requiresWholeNumber,
                           ),
                           inputFormatters: [
                             FilteringTextInputFormatter.allow(
-                              RegExp(r'[\d,.]'),
+                              _requiresWholeNumber
+                                  ? RegExp(r'[\d,]')  // No decimal point for whole-number units
+                                  : RegExp(r'[\d,.]'),
                             ),
                           ],
                           onChanged: (value) {
@@ -293,12 +444,22 @@ class _IngredientFormDialogState extends State<IngredientFormDialog> {
                               );
                             }
                           },
-                          decoration: const InputDecoration(
+                          decoration: InputDecoration(
                             labelText: 'Current Stock',
                             hintText: '0',
-                            prefixIcon: Icon(Icons.inventory),
-                            border: OutlineInputBorder(),
+                            ////helperText: _requiresWholeNumber ? 'Whole numbers only' : null,
+                            prefixIcon: const Icon(Icons.inventory),
+                            border: const OutlineInputBorder(),
                           ),
+                          validator: (value) {
+                            if (_requiresWholeNumber && value != null) {
+                              final stock = double.tryParse(_removeCommas(value)) ?? 0;
+                              if (stock != stock.truncate()) {
+                                return 'Must be a whole number';
+                              }
+                            }
+                            return null;
+                          },
                         ),
                       ),
                     ],

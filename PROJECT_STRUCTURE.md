@@ -1,0 +1,580 @@
+# SE101 Commissary App - Project Structure Documentation
+
+> **Last Updated:** February 2026  
+> **Project Type:** Flutter Desktop/Mobile Application  
+> **App Name:** Chicken Joo Commissary
+
+---
+
+## 📋 Overview
+
+This is a **Flutter-based Commissary Management Application** designed for managing inventory, stock requests, and branch operations. The app features an **offline-first architecture** with cloud synchronization via Supabase.
+
+### Key Features
+- **Offline-first design** - Works without internet, syncs when online
+- **Multi-platform support** - Windows, macOS, Linux, iOS, Android, Web
+- **Real-time sync** - Uses Supabase real-time subscriptions
+- **Role-based access** - Different permissions for commissary vs branches
+- **Inventory management** - Products, ingredients, stock tracking
+- **Branch operations** - Stock requests, replenishment, approvals
+
+---
+
+## 🗂️ Root Directory Structure
+
+```
+SE101-COmmissary-dev/
+│
+├── lib/                    # 📱 Main application source code
+├── test/                   # 🧪 Unit and widget tests
+├── android/                # 🤖 Android-specific configuration
+├── ios/                    # 🍎 iOS-specific configuration
+├── windows/                # 🪟 Windows desktop configuration
+├── macos/                  # 🖥️ macOS desktop configuration
+├── linux/                  # 🐧 Linux desktop configuration
+├── web/                    # 🌐 Web platform configuration
+├── assets/                 # 🖼️ Images and static assets
+├── supabase/               # ☁️ Supabase migrations and config
+├── build/                  # 📦 Build output (auto-generated)
+│
+├── pubspec.yaml            # 📋 Project dependencies and config
+├── pubspec.lock            # 🔒 Locked dependency versions
+├── analysis_options.yaml   # 🔍 Dart linting rules
+├── .env                    # 🔐 Environment variables (Supabase keys)
+├── .gitignore              # 🚫 Git ignore rules
+├── README.md               # 📖 Basic project readme
+├── DOCUMENTATION.md        # 📚 Existing detailed documentation
+├── MIGRATION_PLAN.md       # 📝 Database migration planning
+└── inventory.db            # 💾 Local SQLite database file
+```
+
+---
+
+## 📱 lib/ - Main Application Code
+
+The `lib/` folder contains all the Dart source code for the application.
+
+```
+lib/
+│
+├── main.dart               # 🚀 Application entry point
+│                           # - Initializes Flutter bindings
+│                           # - Loads environment variables (.env)
+│                           # - Sets up desktop window (size, title)
+│                           # - Initializes database (Drift/SQLite)
+│                           # - Initializes Supabase connection
+│                           # - Sets up sync and auth services
+│                           # - Wires up real-time subscriptions
+│
+├── app.dart                # 🎨 Root MaterialApp widget
+│                           # - Defines app theme and colors
+│                           # - Sets up navigation routes
+│
+├── app_globals.dart        # 🌍 Global state container (singleton)
+│                           # - Holds references to database
+│                           # - Holds sync service instance
+│                           # - Holds auth service instance
+│                           # - Holds realtime service instance
+│                           # - Provides app-wide access to services
+│
+├── config/                 # ⚙️ Configuration files
+├── data/                   # 💿 Data layer providers
+├── database/               # 🗄️ Drift database definitions
+├── screens/                # 📺 UI screens and pages
+├── services/               # 🔧 Business logic services
+├── utils/                  # 🛠️ Utility functions and helpers
+└── widgets/                # 🧩 Reusable UI components
+```
+
+---
+
+## ⚙️ lib/config/ - Configuration
+
+```
+lib/config/
+│
+└── supabase_config.dart    # ☁️ Supabase connection configuration
+                            # - Reads URL from .env file
+                            # - Reads anon key from .env file
+                            # - Validates credentials are present
+                            # - Used by main.dart for initialization
+```
+
+---
+
+## 💿 lib/data/ - Data Providers
+
+```
+lib/data/
+│
+├── database_provider.dart  # 📊 Database provider interface
+│                           # - Abstraction for database access
+│
+└── local/                  # 💾 Local data sources
+    ├── [various files]     # Local caching and data handling
+    └── ...
+```
+
+---
+
+## 🗄️ lib/database/ - Drift Database Layer
+
+This is the core data persistence layer using Drift (formerly Moor).
+
+```
+lib/database/
+│
+├── app_database.dart       # 🏗️ Main database class definition
+│                           # - Extends DriftDatabase
+│                           # - Includes all tables and DAOs
+│                           # - Configures database schema version
+│
+├── app_database.g.dart     # ⚡ AUTO-GENERATED (do not edit!)
+│                           # - Generated by drift_dev
+│                           # - Run: flutter pub run build_runner build
+│
+├── tables/                 # 📋 Table definitions (schema)
+├── daos/                   # 🔌 Data Access Objects (queries)
+└── models/                 # 📦 Data models and DTOs
+```
+
+### lib/database/tables/ - Database Table Definitions
+
+```
+lib/database/tables/
+│
+├── organizations.dart      # 🏢 Organizations table
+│                           # - Stores commissary and branch info
+│                           # - Fields: id, cloud_id, name, type, etc.
+│
+├── users.dart              # 👤 Users table
+│                           # - Stores user accounts
+│                           # - Links to organizations and roles
+│
+├── roles.dart              # 🎭 Roles table
+│                           # - Permission levels (admin, manager, etc.)
+│                           # - Role-based access control
+│
+├── categories.dart         # 📁 Categories table
+│                           # - Product/ingredient categorization
+│                           # - Hierarchical category structure
+│
+├── items.dart              # 📦 Items/Products table
+│                           # - Menu items and products
+│                           # - Price, description, category link
+│
+├── ingredients.dart        # 🥬 Ingredients table
+│                           # - Raw materials and supplies
+│                           # - Unit of measure, stock levels
+│
+├── recipe_ingredients.dart # 📝 Recipe ingredients junction table
+│                           # - Links items to their ingredients
+│                           # - Specifies quantity per recipe
+│
+├── branch_item_stock.dart  # 📊 Branch stock levels table
+│                           # - Per-branch inventory quantities
+│                           # - Tracks min/max stock levels
+│
+├── stock_change_requests.dart      # 📤 Stock change requests table
+│                                   # - Adjustment requests from branches
+│                                   # - Approval workflow tracking
+│
+└── stock_replenishment_requests.dart # 📥 Replenishment requests table
+                                      # - Requests for new stock
+                                      # - From branches to commissary
+```
+
+### lib/database/daos/ - Data Access Objects
+
+Each DAO provides CRUD operations and queries for its corresponding table.
+
+```
+lib/database/daos/
+│
+├── organizations_dao.dart          # 🏢 Organization queries
+│                                   # - Get/create/update organizations
+│                                   # - Filter by type (commissary/branch)
+│
+├── users_dao.dart                  # 👤 User queries
+│                                   # - Authentication lookups
+│                                   # - User management operations
+│
+├── roles_dao.dart                  # 🎭 Role queries
+│                                   # - Permission checks
+│                                   # - Role assignments
+│
+├── categories_dao.dart             # 📁 Category queries
+│                                   # - Category tree operations
+│                                   # - Filtered lookups
+│
+├── items_dao.dart                  # 📦 Item/Product queries
+│                                   # - Product listings
+│                                   # - Search and filtering
+│
+├── ingredients_dao.dart            # 🥬 Ingredient queries
+│                                   # - Ingredient management
+│                                   # - Stock level checks
+│
+├── recipe_ingredients_dao.dart     # 📝 Recipe queries
+│                                   # - Get ingredients for item
+│                                   # - Recipe cost calculations
+│
+├── branch_item_stock_dao.dart      # 📊 Stock level queries
+│                                   # - Per-branch inventory
+│                                   # - Low stock alerts
+│
+├── stock_change_requests_dao.dart  # 📤 Change request queries
+│                                   # - Pending approvals
+│                                   # - Request history
+│
+└── stock_replenishment_requests_dao.dart # 📥 Replenishment queries
+                                          # - Request management
+                                          # - Fulfillment tracking
+│
+└── [*.g.dart files]                # ⚡ AUTO-GENERATED (do not edit!)
+```
+
+---
+
+## 🔧 lib/services/ - Business Logic Services
+
+```
+lib/services/
+│
+├── supabase_auth_service.dart      # 🔐 Authentication service
+│                                   # - User login/logout
+│                                   # - Session management
+│                                   # - Auth state streaming
+│                                   # - Role-based permissions
+│
+├── supabase_sync_service_v2.dart   # 🔄 Cloud sync service (v2)
+│                                   # - Bidirectional sync with Supabase
+│                                   # - Conflict resolution
+│                                   # - Organization-scoped data
+│                                   # - Periodic background sync
+│
+├── realtime_stock_request_service.dart # 📡 Real-time updates
+│                                       # - Supabase real-time subscriptions
+│                                       # - Live stock request updates
+│                                       # - Push notifications for changes
+│
+├── search_service.dart             # 🔍 Search functionality
+│                                   # - Full-text search
+│                                   # - Filter and sort operations
+│
+├── connectivity_service.dart       # 📶 Network status monitoring
+│                                   # - Online/offline detection
+│                                   # - Auto-sync on reconnect
+│
+└── sync/                           # 🔄 Sync engine components
+    │
+    ├── sync.dart                   # 📦 Sync exports/barrel file
+    │
+    ├── sync_engine.dart            # ⚙️ Core sync orchestration
+    │                               # - Manages table sync order
+    │                               # - Handles sync lifecycle
+    │
+    ├── sync_conflict.dart          # ⚔️ Conflict resolution
+    │                               # - Detects sync conflicts
+    │                               # - Resolution strategies
+    │
+    ├── table_sync_descriptor.dart  # 📋 Table sync configuration
+    │                               # - Per-table sync settings
+    │                               # - Field mappings
+    │
+    └── descriptors/                # 📝 Per-table sync descriptors
+        ├── [9 descriptor files]    # One for each synced table
+        └── ...                     # Maps local ↔ cloud schema
+```
+
+---
+
+## 📺 lib/screens/ - UI Screens and Pages
+
+```
+lib/screens/
+│
+├── login/                          # 🔐 Login screen
+│   └── login_page.dart             # - Email/password auth
+│                                   # - Error handling
+│                                   # - Remember me functionality
+│
+├── home/                           # 🏠 Home/Dashboard screen
+│   └── home_page.dart              # - Main navigation hub
+│                                   # - Quick stats overview
+│
+├── commissary_page                 # 🏭 Commissary main screen
+│                                   # - Commissary-specific operations
+│                                   # - Admin management view
+│
+├── branches/                       # 🏪 Branch management
+│   ├── branches_page.dart          # - Responsive wrapper
+│   ├── branches_page_desktop.dart  # - Desktop layout
+│   └── branches_page_mobile.dart   # - Mobile layout
+│
+├── inventory/                      # 📦 Inventory overview
+│   └── inventory_page.dart         # - Stock levels display
+│                                   # - Low stock alerts
+│
+├── inventory_management/           # 📊 Full inventory management
+│   ├── inventory_management_page.dart         # - Responsive wrapper
+│   ├── inventory_management_page_desktop.dart # - Desktop layout
+│   ├── inventory_management_page_mobile.dart  # - Mobile layout
+│   ├── products_tab.dart           # - Products management tab
+│   ├── ingredients_tab.dart        # - Ingredients management tab
+│   └── widgets/                    # - Tab-specific widgets
+│
+├── ingredients/                    # 🥬 Ingredients screen
+│   └── ingredients_page.dart       # - Ingredient CRUD
+│                                   # - Stock adjustments
+│
+├── requests/                       # 📨 Stock requests
+│   └── requests_page.dart          # - View/approve requests
+│                                   # - Request creation
+│
+├── reports/                        # 📈 Reports screen
+│   └── reports_page.dart           # - Analytics and reporting
+│                                   # - Export functionality
+│
+└── settings/                       # ⚙️ Settings screen
+    └── settings_page.dart          # - App preferences
+                                    # - Sync settings
+                                    # - User profile
+```
+
+---
+
+## 🧩 lib/widgets/ - Reusable UI Components
+
+```
+lib/widgets/
+│
+├── connection_status_indicator.dart # 📶 Network status widget
+│                                    # - Shows online/offline state
+│                                    # - Visual indicator in app bar
+│
+├── realtime_status_indicator.dart   # 📡 Real-time connection widget
+│                                    # - Supabase connection status
+│                                    # - Subscription health
+│
+└── filter_widgets.dart              # 🔍 Filter/search widgets
+                                     # - Reusable filter dropdowns
+                                     # - Search input fields
+                                     # - Date range pickers
+```
+
+---
+
+## 🛠️ lib/utils/ - Utility Functions
+
+```
+lib/utils/
+│
+├── app_logger.dart          # 📝 Logging utility
+│                            # - Centralized logging
+│                            # - Debug/info/error levels
+│
+├── design_constants.dart    # 🎨 Design tokens and constants
+│                            # - Colors, spacing, typography
+│                            # - Consistent UI values
+│
+├── sync_status.dart         # 🔄 Sync status enums/helpers
+│                            # - Sync state definitions
+│                            # - Status utilities
+│
+└── tables.dart              # 📋 Table name constants
+                             # - Centralized table references
+                             # - Used by sync system
+```
+
+---
+
+## 🧪 test/ - Test Files
+
+```
+test/
+│
+├── app_globals_test.dart    # 🧪 AppGlobals unit tests
+│
+├── config/                  # ⚙️ Configuration tests
+├── data/                    # 💿 Data layer tests
+├── database/                # 🗄️ Database tests
+├── models/                  # 📦 Model tests
+├── services/                # 🔧 Service tests
+│   ├── sync_engine_test.dart
+│   └── ...
+└── utils/                   # 🛠️ Utility tests
+```
+
+---
+
+## ☁️ supabase/ - Supabase Configuration
+
+```
+supabase/
+│
+└── migrations/                         # 📝 SQL migration files
+    │
+    ├── 001_add_missing_columns.sql     # 🔧 Schema updates
+    │                                   # - Adds new columns to tables
+    │
+    ├── 002_fix_rls_for_branch_operations.sql  # 🔒 RLS policies
+    │                                          # - Row Level Security
+    │                                          # - Branch data isolation
+    │
+    ├── 003_commissary_rls_policies.sql # 🔒 Commissary RLS
+    │                                   # - Commissary-specific access
+    │
+    ├── 004_rollback_rls_policies.sql   # ⏪ Rollback script
+    │                                   # - Reverts RLS changes if needed
+    │
+    └── 005_fix_org_bootstrap_rls.sql   # 🔧 Org bootstrap fix
+                                        # - Initial setup RLS
+```
+
+---
+
+## 🖼️ assets/ - Static Assets
+
+```
+assets/
+│
+└── chicken_joo_logo.png     # 🐔 Application logo
+                             # - Used in login screen
+                             # - App branding
+```
+
+---
+
+## 📱 Platform-Specific Folders
+
+| Folder | Purpose |
+|--------|---------|
+| `android/` | Android build config, Gradle settings, manifest |
+| `ios/` | iOS build config, Info.plist, Xcode project |
+| `windows/` | Windows build config, CMake, runner |
+| `macos/` | macOS build config, Xcode project |
+| `linux/` | Linux build config, CMake |
+| `web/` | Web build config, index.html |
+
+---
+
+## 📋 Key Dependencies (pubspec.yaml)
+
+### Core Dependencies
+| Package | Purpose |
+|---------|---------|
+| `flutter` | UI framework |
+| `drift` | Local SQLite database ORM |
+| `sqlite3_flutter_libs` | SQLite native libraries |
+| `path_provider` | App directory access |
+
+### Cloud & Sync
+| Package | Purpose |
+|---------|---------|
+| `supabase_flutter` | Supabase SDK (auth, database, realtime) |
+| `connectivity_plus` | Network status detection |
+| `flutter_dotenv` | Environment variable loading |
+
+### Utilities
+| Package | Purpose |
+|---------|---------|
+| `uuid` | Unique ID generation |
+| `crypto` | Cryptographic functions |
+| `intl` | Internationalization |
+| `window_size` | Desktop window control |
+
+### Dev Dependencies
+| Package | Purpose |
+|---------|---------|
+| `flutter_test` | Testing framework |
+| `drift_dev` | Drift code generator |
+| `build_runner` | Code generation runner |
+| `mocktail` | Mocking for tests |
+
+---
+
+## 🔄 Data Flow Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        USER INTERFACE                           │
+│              (lib/screens/, lib/widgets/)                       │
+└─────────────────────┬───────────────────────────────────────────┘
+                      │
+                      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      APP GLOBALS                                │
+│              (lib/app_globals.dart)                             │
+│  Provides access to: Database, SyncService, AuthService        │
+└─────────────────────┬───────────────────────────────────────────┘
+                      │
+          ┌───────────┼───────────┐
+          ▼           ▼           ▼
+┌───────────────┐ ┌────────────┐ ┌──────────────────┐
+│   DATABASE    │ │   AUTH     │ │      SYNC        │
+│   (Drift)     │ │  SERVICE   │ │    SERVICES      │
+│ lib/database/ │ │            │ │  lib/services/   │
+└───────┬───────┘ └─────┬──────┘ └────────┬─────────┘
+        │               │                  │
+        ▼               │                  ▼
+┌───────────────┐       │        ┌──────────────────┐
+│  LOCAL SQLITE │       │        │    SUPABASE      │
+│   DATABASE    │       └───────▶│     CLOUD        │
+│ (Offline-first)│               │   (PostgreSQL)   │
+└───────────────┘                └──────────────────┘
+```
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Flutter SDK 3.9.2+
+- Dart SDK 3.9.2+
+- Supabase project (for cloud features)
+
+### Setup Steps
+
+1. **Clone the repository**
+   ```bash
+   git clone <repo-url>
+   cd SE101-COmmissary-dev
+   ```
+
+2. **Configure environment**
+   ```bash
+   # Create .env file with your Supabase credentials
+   SUPABASE_URL=your_supabase_url
+   SUPABASE_ANON_KEY=your_anon_key
+   ```
+
+3. **Install dependencies**
+   ```bash
+   flutter pub get
+   ```
+
+4. **Generate database code**
+   ```bash
+   flutter pub run build_runner build --delete-conflicting-outputs
+   ```
+
+5. **Run the app**
+   ```bash
+   flutter run -d windows  # For Windows desktop
+   flutter run -d chrome   # For web
+   flutter run             # For connected device
+   ```
+
+---
+
+## 📝 Important Notes
+
+- **`*.g.dart` files** - Auto-generated by `build_runner`. Never edit these manually!
+- **Offline-first** - App works without internet; data syncs when online
+- **RLS (Row Level Security)** - Supabase enforces data access per organization
+- **Desktop-first** - Optimized for desktop use with responsive mobile support
+
+---
+
+*This documentation was auto-generated based on project analysis.*
