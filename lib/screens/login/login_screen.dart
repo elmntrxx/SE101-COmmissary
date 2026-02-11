@@ -4,6 +4,13 @@ import '../../app_globals.dart';
 import '../../services/supabase_auth_service.dart';
 import '../../utils/design_constants.dart';
 
+/// Login screen focused only on explicit sign-in attempts.
+/// 
+/// Session restoration is handled by AuthGateScreen before this screen is shown.
+/// This screen only handles:
+/// 1. Displaying the login form
+/// 2. Processing explicit sign-in attempts
+/// 3. Showing login errors
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -23,14 +30,7 @@ class _LoginScreenState extends State<LoginScreen> {
   void initState() {
     super.initState();
     _authService = authService;
-    _checkExistingSession();
-  }
-
-  Future<void> _checkExistingSession() async {
-    final result = await _authService.restoreSession();
-    if (result.success && result.localUser != null && mounted) {
-      Navigator.pushReplacementNamed(context, '/home', arguments: result.localUser);
-    }
+    // Session restoration is handled by AuthGateScreen - no need to check here
   }
 
   @override

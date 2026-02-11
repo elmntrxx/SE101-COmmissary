@@ -136,6 +136,14 @@ class SyncEngine {
     // but kept in API for compatibility with caller
   }
 
+  /// Clear organization context (call on auth loss/logout)
+  void clearOrganizationContext() {
+    _organizationType = null;
+    if (kDebugMode) {
+      AppLogger.sync('🔒 Organization context cleared');
+    }
+  }
+
   // ============================================================================
   // CACHE MANAGEMENT
   // ============================================================================

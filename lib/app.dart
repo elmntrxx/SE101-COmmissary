@@ -1,6 +1,7 @@
 // lib/app.dart
 import 'package:flutter/material.dart';
 import 'services/supabase_auth_service.dart';
+import 'screens/auth/auth_gate_screen.dart';
 import 'screens/login/login_screen.dart';
 import 'screens/home/home_screen.dart';
 
@@ -20,9 +21,11 @@ class CommissaryApp extends StatelessWidget {
         useMaterial3: true,
         fontFamily: 'Montserrat',
       ),
-      initialRoute: '/login',
+      // Start with auth gate which waits for bootstrap to complete
+      home: const AuthGateScreen(),
       routes: {
         '/login': (context) => const LoginScreen(),
+        '/auth-gate': (context) => const AuthGateScreen(),
       },
       onGenerateRoute: (settings) {
         if (settings.name == '/home') {
