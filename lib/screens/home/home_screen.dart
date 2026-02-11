@@ -319,7 +319,7 @@ class HomeScreenState extends State<HomeScreen> {
                   _buildQuickAction(
                     icon: Icons.assessment,
                     label: 'View Reports',
-                    onTap: () => switchPage(5),
+                      onTap: () => switchPage(4),
                   ),
                 ],
               );
