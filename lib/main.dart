@@ -73,7 +73,7 @@ void main() async {
 
   // Initialize auth service
   print('🔐 Initializing auth service...');
-  final authService = SupabaseAuthService(
+  final authServiceInstance = SupabaseAuthService(
     supabase: supabaseInitialized
         ? Supabase.instance.client
         : SupabaseClient('', ''),
@@ -98,7 +98,7 @@ void main() async {
   AppGlobals.instance.initialize(
     database: db,
     syncService: syncService,
-    authService: authService,
+    authService: authServiceInstance,
     realtimeStockRequestService: realtimeStockRequestService,
   );
   print('✅ AppGlobals initialized');
@@ -110,7 +110,8 @@ void main() async {
     });
     
     // Wire up auth state to sync service organization context
-    authService.authStateChanges.listen((user) {
+    // This handles both initial auth and subsequent auth changes
+    authServiceInstance.authStateChanges.listen((user) {
       if (user != null) {
         // User logged in - set organization context for sync
         syncService.setOrganizationContext(
@@ -121,19 +122,16 @@ void main() async {
         print('🔄 Sync context set: ${user.organizationType} (org ${user.organizationId})');
         // Trigger a sync now that we have context
         syncService.performFullSync();
+      } else {
+        // User logged out - clear sync context to prevent stale user data assumptions
+        syncService.clearOrganizationContext();
+        print('🔄 Sync context cleared - user logged out');
       }
     });
     
-    // If user is already logged in, set context immediately
-    if (authService.currentUser != null) {
-      final user = authService.currentUser!;
-      syncService.setOrganizationContext(
-        organizationType: user.organizationType,
-        organizationId: user.organizationId,
-        organizationCloudId: user.organizationCloudId ?? '',
-      );
-      print('🔄 Sync context set (existing session): ${user.organizationType} (org ${user.organizationId})');
-    }
+    // Note: We no longer check for existing session here.
+    // AuthGateScreen will call authService.bootstrap() which handles session restoration.
+    // This ensures the UI waits for auth to complete before making routing decisions.
   }
 
   runApp(const CommissaryApp());

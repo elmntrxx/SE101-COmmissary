@@ -127,6 +127,11 @@ class SupabaseSyncServiceV2 {
     );
   }
 
+  /// Clear organization context (call on logout to prevent stale data assumptions)
+  void clearOrganizationContext() {
+    _engine.clearOrganizationContext();
+  }
+
   void startPeriodicSync() {
     _syncTimer?.cancel();
     _syncTimer = Timer.periodic(syncInterval, (_) {
