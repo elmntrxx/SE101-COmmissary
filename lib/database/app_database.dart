@@ -20,6 +20,7 @@ import 'tables/recipe_ingredients.dart';
 import 'tables/stock_replenishment_requests.dart';
 import 'tables/stock_change_requests.dart';
 import 'tables/branch_item_stock.dart';
+import 'tables/daily_sales_summary.dart';
 
 // DAOs
 import 'daos/organizations_dao.dart';
@@ -32,6 +33,7 @@ import 'daos/recipe_ingredients_dao.dart';
 import 'daos/stock_replenishment_requests_dao.dart';
 import 'daos/stock_change_requests_dao.dart';
 import 'daos/branch_item_stock_dao.dart';
+import 'daos/daily_sales_summary_dao.dart';
 
 part 'app_database.g.dart';
 
@@ -48,6 +50,7 @@ part 'app_database.g.dart';
     StockReplenishmentRequests,
     StockChangeRequests,
     BranchItemStock,
+    DailySalesSummary,
   ],
   daos: [
     OrganizationsDao,
@@ -60,6 +63,7 @@ part 'app_database.g.dart';
     StockReplenishmentRequestsDao,
     StockChangeRequestsDao,
     BranchItemStockDao,
+    DailySalesSummaryDao,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -70,7 +74,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.test(super.executor);
 
   @override
-  int get schemaVersion => 2;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration {
@@ -98,6 +102,26 @@ class AppDatabase extends _$AppDatabase {
           await customStatement(
             'CREATE INDEX IF NOT EXISTS idx_replenish_status ON stock_replenishment_requests(status)'
           );
+        }
+        if (from < 3) {
+          // Version 3: Added DailySalesSummary for POS integration
+          print('📦 Creating daily_sales_summary table...');
+          await m.createTable(dailySalesSummary);
+          
+          // Create indexes for daily sales queries
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_daily_sales_org_date '
+            'ON daily_sales_summary(organization_id, summary_date)'
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_daily_sales_item_date '
+            'ON daily_sales_summary(item_id, summary_date)'
+          );
+          await customStatement(
+            'CREATE INDEX IF NOT EXISTS idx_daily_sales_date '
+            'ON daily_sales_summary(summary_date)'
+          );
+          print('✅ POS tables created successfully!');
         }
       },
       beforeOpen: (details) async {

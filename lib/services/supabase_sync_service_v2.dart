@@ -107,6 +107,7 @@ class SupabaseSyncServiceV2 {
       'stock_replenishment_requests',
       'stock_change_requests',
       'branch_item_stock',
+      'daily_sales_summary',
     ]);
 
     if (_isOnline && canSync) {
@@ -237,6 +238,7 @@ class SupabaseSyncServiceV2 {
       3: [
         () => _syncRecipeIngredients(),
         () => _syncBranchItemStock(),
+        () => _syncDailySalesSummary(),
       ],
       // Tier 4: Depends on Tier 2/3
       4: [
@@ -609,6 +611,54 @@ class SupabaseSyncServiceV2 {
 
     return TableSyncResult(
       tableName: 'branch_item_stock',
+      pushedCount: pushResult.pushedCount,
+      pulledCount: pullResult.pulledCount,
+      conflictCount: pullResult.conflictCount,
+      success: pushResult.success && pullResult.success,
+    );
+  }
+
+  Future<TableSyncResult> _syncDailySalesSummary() async {
+    final pushResult = await _engine.pushTable(
+      descriptor: dailySalesSummaryDescriptor,
+      getUnsyncedRecords: ({int limit = 50, int offset = 0}) async {
+        final all = await db.dailySalesSummaryDao.getUnsyncedSummaries();
+        return all.skip(offset).take(limit).toList();
+      },
+      markAsSynced: (ids, {Map<int, String>? cloudIds}) async {
+        await db.dailySalesSummaryDao.markAsSynced(ids, cloudIds: cloudIds);
+      },
+      toMap: (summary) => {
+        'organizationId': summary.organizationId,
+        'itemId': summary.itemId,
+        'summaryDate': summary.summaryDate,
+        'quantitySold': summary.quantitySold,
+        'quantitySpoiled': summary.quantitySpoiled,
+        'revenue': summary.revenue,
+        'costOfGoodsSold': summary.costOfGoodsSold,
+        'grossProfit': summary.grossProfit,
+        'transactionCount': summary.transactionCount,
+        'openingStock': summary.openingStock,
+        'closingStock': summary.closingStock,
+        'createdAt': summary.createdAt,
+        'lastUpdated': summary.lastUpdated,
+        'isDeleted': summary.isDeleted,
+      },
+      getId: (summary) => summary.id,
+      getCloudId: (summary) => summary.cloudId,
+      shouldSkip: (summary) => summary.isDeleted,
+    );
+
+    final pullResult = await _engine.pullTable(
+      descriptor: dailySalesSummaryDescriptor,
+      upsertBatchFromCloud: (records) => db.dailySalesSummaryDao.upsertBatchFromCloud(records),
+      getByCloudId: (cloudId) => db.dailySalesSummaryDao.getByCloudId(cloudId),
+      getLastUpdated: (summary) => summary.lastUpdated,
+      getOrganizationId: (summary) => null, // RLS handles filtering
+    );
+
+    return TableSyncResult(
+      tableName: 'daily_sales_summary',
       pushedCount: pushResult.pushedCount,
       pulledCount: pullResult.pulledCount,
       conflictCount: pullResult.conflictCount,

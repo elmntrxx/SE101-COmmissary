@@ -15,3 +15,4 @@ export 'descriptors/ingredients_descriptor.dart';
 export 'descriptors/recipe_ingredients_descriptor.dart';
 export 'descriptors/stock_requests_descriptor.dart';
 export 'descriptors/branch_stock_descriptor.dart';
+export 'descriptors/daily_sales_summary_descriptor.dart';
