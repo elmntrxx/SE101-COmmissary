@@ -314,22 +314,21 @@ class _ProductsTabState extends State<ProductsTab> {
         return;
       }
 
-      // Delete from Supabase cloud first
-      try {
-        await syncService.deleteItemFromCloud(item.cloudId);
-      } catch (e) {
-        print('⚠️ Failed to delete from cloud: $e');
-        // Continue with local delete even if cloud delete fails
-      }
+      // Soft delete locally to avoid FK issues and allow sync
+      await database.itemsDao.softDeleteItem(item.id);
 
-      // Delete from local database
-      await database.itemsDao.permanentlyDeleteItem(item.id);
+      // Best-effort sync to push deactivation to cloud
+      try {
+        await syncService.performFullSync();
+      } catch (e) {
+        print('⚠️ Failed to sync after delete: $e');
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).clearSnackBars();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('${item.name} permanently deleted'),
+            content: Text('${item.name} deleted'),
             backgroundColor: Colors.green,
           ),
         );

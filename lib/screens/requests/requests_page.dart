@@ -415,7 +415,7 @@ class RequestsPageState extends State<RequestsPage> {
           ),
         ),
         Text(
-          DateFormat('MMM d, yyyy').format(req.createdAt),
+          DateFormat('MMM d, yyyy  h:mm a').format(req.createdAt),
           style: const TextStyle(fontFamily: fontAll, fontSize: 12),
         ),
         Container(
@@ -483,12 +483,12 @@ class RequestsPageState extends State<RequestsPage> {
           style: const TextStyle(fontFamily: fontAll),
         ),
         Text(
-          DateFormat('MMM d, yyyy').format(req.createdAt),
+          DateFormat('MMM d, yyyy  h:mm a').format(req.createdAt),
           style: const TextStyle(fontFamily: fontAll, fontSize: 12),
         ),
         Text(
           req.reviewedAt != null
-              ? DateFormat('MMM d, yyyy').format(req.reviewedAt!)
+              ? DateFormat('MMM d, yyyy  h:mm a').format(req.reviewedAt!)
               : '-',
           style: const TextStyle(fontFamily: fontAll, fontSize: 12),
         ),
