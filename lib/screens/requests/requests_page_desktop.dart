@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 
 import '../../database/app_database.dart';
 import '../../services/search_service.dart';
@@ -183,21 +185,60 @@ class RequestsPageDesktop extends StatelessWidget {
               return const Center(child: CircularProgressIndicator());
             }
 
-            // Desktop: show all columns with wider widths
-            return buildUniversalTable(
-              headers: [
-                'Request ID',
-                'Branch',
-                'Item',
-                'Amount Requested',
-                'Stock Available',
-                'Date',
-                'Status',
-                '',
-              ],
-              rows: rowSnapshot.data!,
-              smallHeaderWidth: 30,
-              largeHeaderWidth: 70,
+            return SingleChildScrollView(
+              child: Column(
+                children: requests
+                    .fold<Map<String, List<StockReplenishmentRequest>>>(
+                      <String, List<StockReplenishmentRequest>>{},
+                      (map, req) {
+                        map.putIfAbsent(
+                          req.createdAt.toIso8601String(),
+                          () => <StockReplenishmentRequest>[],
+                        ).add(req);
+                        return map;
+                      },
+                    )
+                    .entries
+                    .map(
+                      (entry) => ExpansionTile(
+                        title: Text(
+                          '${DateFormat('MMM d, yyyy  h:mm a').format(entry.value.first.createdAt)} '
+                          '(${entry.value.length} requests)',
+                        ),
+                        children: [
+                          buildUniversalTable(
+                            headers: [
+                              'Request ID',
+                              'Branch',
+                              'Item',
+                              'Amount Requested',
+                              'Stock Available',
+                              'Date',
+                              'Status',
+                              '',
+                            ],
+                            rows: entry.value
+                                .map(
+                                  (req) =>
+                                      requests.indexWhere((r) => r.id == req.id),
+                                )
+                                .where(
+                                  (index) =>
+                                      index >= 0 && index < rowSnapshot.data!.length,
+                                )
+                                .map((index) => rowSnapshot.data![index])
+                                .toList(),
+                            smallHeaderWidth: 30,
+                            largeHeaderWidth: 70,
+                            showHorizontalScrollbar: Platform.isWindows,
+                            horizontalController:
+                                Platform.isWindows ? ScrollController() : null,
+                          ),
+                        ],
+                      ),
+                    )
+                    .toList(),
+              ),
             );
           },
         );

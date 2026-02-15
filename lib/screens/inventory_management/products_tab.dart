@@ -1,4 +1,5 @@
 // lib/screens/inventory_management/products_tab.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:drift/drift.dart' hide Column;
 import 'package:intl/intl.dart';
@@ -802,8 +803,11 @@ class _ProductsTabState extends State<ProductsTab> {
               ),
             ];
           }).toList(),
-          smallHeaderWidth: 60,
-          largeHeaderWidth: 60,
+          smallHeaderWidth: 40,
+          largeHeaderWidth: 90,
+          showHorizontalScrollbar: Platform.isWindows,
+          horizontalController:
+              Platform.isWindows ? ScrollController() : null,
         );
       },
     );
