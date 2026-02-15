@@ -1,4 +1,5 @@
 // lib/screens/inventory_management/ingredients_tab.dart
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../database/app_database.dart';
@@ -382,8 +383,11 @@ class _IngredientsTabState extends State<IngredientsTab> {
               ),
             ];
           }).toList(),
-          smallHeaderWidth: 60,
-          largeHeaderWidth: 60,
+          smallHeaderWidth: 40,
+          largeHeaderWidth: 90,
+          showHorizontalScrollbar: Platform.isWindows,
+          horizontalController:
+              Platform.isWindows ? ScrollController() : null,
         );
       },
     );

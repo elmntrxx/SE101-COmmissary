@@ -52,6 +52,8 @@ Widget buildUniversalTable({
   required List<List<dynamic>> rows, // ✅ Widgets now
   required double smallHeaderWidth,
   required double largeHeaderWidth,
+  bool showHorizontalScrollbar = false,
+  ScrollController? horizontalController,
 }) {
   return LayoutBuilder(
     builder: (context, constraints) {
@@ -91,8 +93,9 @@ Widget buildUniversalTable({
         return textCell(cellValue.toString());
       }
 
-      return SingleChildScrollView(
+      final table = SingleChildScrollView(
         scrollDirection: Axis.horizontal,
+        controller: horizontalController,
         child: ConstrainedBox(
           constraints: BoxConstraints(minWidth: constraints.maxWidth),
           child: SingleChildScrollView(
@@ -117,6 +120,17 @@ Widget buildUniversalTable({
             ),
           ),
         ),
+      );
+
+      if (!showHorizontalScrollbar) {
+        return table;
+      }
+
+      return Scrollbar(
+        controller: horizontalController,
+        scrollbarOrientation: ScrollbarOrientation.bottom,
+        thumbVisibility: true,
+        child: table,
       );
     },
   );
