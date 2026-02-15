@@ -586,15 +586,26 @@ class BranchesPageState extends State<BranchesPage> {
 
     if (shouldDelete == true) {
       try {
-        // Implementation: Delete branch
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('${branch.name} deleted')));
+        // Soft delete the branch (deactivate)
+        await db.organizationsDao.deactivateOrganization(branch.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${branch.name} deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
         await loadData();
       } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error deleting branch: $e')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting branch: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
@@ -622,15 +633,26 @@ class BranchesPageState extends State<BranchesPage> {
 
     if (shouldDelete == true) {
       try {
-        // Implementation: Delete admin
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('${user.username} deleted')));
+        // Soft delete the admin user (deactivate)
+        await db.usersDao.deactivateUser(user.id);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${user.username} deleted successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
         await loadData();
       } catch (e) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error deleting admin: $e')));
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Error deleting admin: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
       }
     }
   }
