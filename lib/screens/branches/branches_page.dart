@@ -9,6 +9,7 @@ import '../../database/app_database.dart';
 import '../../services/search_service.dart';
 import '../../services/supabase_auth_service.dart';
 import '../../utils/design_constants.dart';
+import '../../utils/phone_formatter.dart';
 import 'branches_page_desktop.dart';
 import 'branches_page_mobile.dart';
 
@@ -258,9 +259,13 @@ class BranchesPageState extends State<BranchesPage> {
                     decoration: const InputDecoration(
                       labelText: 'Phone',
                       prefixIcon: Icon(Icons.phone),
+                      hintText: '09XX XXX XXXX',
                     ),
                     keyboardType: TextInputType.phone,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
+                      PhilippinePhoneFormatter(),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -422,9 +427,13 @@ class BranchesPageState extends State<BranchesPage> {
                       decoration: const InputDecoration(
                         labelText: 'Phone',
                         prefixIcon: Icon(Icons.phone),
+                        hintText: '09XX XXX XXXX',
                       ),
                       keyboardType: TextInputType.phone,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
+                        PhilippinePhoneFormatter(),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     TextField(
