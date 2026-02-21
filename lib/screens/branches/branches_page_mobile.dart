@@ -120,6 +120,69 @@ class BranchesPageMobile extends StatelessWidget {
                           tooltip: 'Active only',
                           onPressed: () => state.toggleShowActiveOnly(!state.showActiveOnly),
                         ),
+                      // Branch filter for admins tab
+                      if (state.selectedTab == 1)
+                        PopupMenuButton<int>(
+                          icon: Icon(
+                            Icons.filter_list,
+                            size: 24,
+                            color: state.selectedBranchFilter != null ? Colors.blue : null,
+                          ),
+                          tooltip: 'Filter by branch',
+                          onSelected: state.setBranchFilter,
+                          itemBuilder: (context) {
+                            final items = <PopupMenuEntry<int>>[];
+                            items.add(
+                              PopupMenuItem<int>(
+                                value: -1,
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.store, size: 18),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      'All Branches',
+                                      style: TextStyle(
+                                        fontWeight: state.selectedBranchFilter == null
+                                            ? FontWeight.bold
+                                            : FontWeight.normal,
+                                      ),
+                                    ),
+                                    if (state.selectedBranchFilter == null) ...[
+                                      const Spacer(),
+                                      Icon(Icons.check, size: 18, color: Theme.of(context).primaryColor),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            );
+                            items.add(const PopupMenuDivider());
+                            for (final branch in state.branches) {
+                              final isSelected = state.selectedBranchFilter == branch.id;
+                              items.add(
+                                PopupMenuItem<int>(
+                                  value: branch.id,
+                                  child: Row(
+                                    children: [
+                                      const Icon(Icons.storefront, size: 18),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          branch.name,
+                                          style: TextStyle(
+                                            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                                          ),
+                                        ),
+                                      ),
+                                      if (isSelected)
+                                        Icon(Icons.check, size: 18, color: Theme.of(context).primaryColor),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }
+                            return items;
+                          },
+                        ),
                     ],
                   ),
                 ],

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:drift/drift.dart' as drift; // <-- alias Drift
 import 'package:commissary_app/utils/design_constants.dart';
+import 'package:commissary_app/utils/phone_formatter.dart';
 import 'package:commissary_app/services/search_service.dart';
 import '../../../data/local/app_database.dart';
 import '../../../data/database_provider.dart';
@@ -84,10 +85,14 @@ Future<void> _loadItems() async {
                 ),
                 TextField(
                   controller: phoneController,
-                  decoration: const InputDecoration(labelText: "Phone"),
+                  decoration: const InputDecoration(
+                    labelText: "Phone",
+                    hintText: '09XX XXX XXXX',
+                  ),
                   keyboardType: TextInputType.phone,
                   inputFormatters: [
-                    FilteringTextInputFormatter.digitsOnly,
+                    FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
+                    PhilippinePhoneFormatter(),
                   ],
                 ),
                 TextField(

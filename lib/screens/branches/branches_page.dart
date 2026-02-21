@@ -9,6 +9,7 @@ import '../../database/app_database.dart';
 import '../../services/search_service.dart';
 import '../../services/supabase_auth_service.dart';
 import '../../utils/design_constants.dart';
+import '../../utils/phone_formatter.dart';
 import 'branches_page_desktop.dart';
 import 'branches_page_mobile.dart';
 
@@ -41,6 +42,9 @@ class BranchesPageState extends State<BranchesPage> {
   String adminSortOrder = 'nameAsc';
   bool showActiveOnly = false;
 
+  // Branch filter for admins tab
+  int? selectedBranchFilter; // null means "All Branches"
+
   final _uuid = const Uuid();
 
   void setSelectedTab(int index) {
@@ -68,6 +72,13 @@ class BranchesPageState extends State<BranchesPage> {
   void toggleShowActiveOnly(bool value) {
     setState(() {
       showActiveOnly = value;
+    });
+  }
+
+  void setBranchFilter(int branchId) {
+    setState(() {
+      // -1 means "All Branches"
+      selectedBranchFilter = branchId == -1 ? null : branchId;
     });
   }
 
@@ -248,9 +259,13 @@ class BranchesPageState extends State<BranchesPage> {
                     decoration: const InputDecoration(
                       labelText: 'Phone',
                       prefixIcon: Icon(Icons.phone),
+                      hintText: '09XX XXX XXXX',
                     ),
                     keyboardType: TextInputType.phone,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
+                      PhilippinePhoneFormatter(),
+                    ],
                   ),
                   const SizedBox(height: 16),
                   TextField(
@@ -412,9 +427,13 @@ class BranchesPageState extends State<BranchesPage> {
                       decoration: const InputDecoration(
                         labelText: 'Phone',
                         prefixIcon: Icon(Icons.phone),
+                        hintText: '09XX XXX XXXX',
                       ),
                       keyboardType: TextInputType.phone,
-                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      inputFormatters: [
+                        FilteringTextInputFormatter.allow(RegExp(r'[0-9 ]')),
+                        PhilippinePhoneFormatter(),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     TextField(
@@ -664,8 +683,21 @@ class BranchesPageState extends State<BranchesPage> {
   Future<List<Map<String, dynamic>>> buildAdminRows() async {
     final rows = <Map<String, dynamic>>[];
     for (final branch in branches) {
+      // Apply branch filter
+      if (selectedBranchFilter != null && branch.id != selectedBranchFilter) {
+        continue;
+      }
       final users = branchUsers[branch.id] ?? [];
       for (final user in users) {
+        // Apply search filter
+        if (searchQuery.isNotEmpty) {
+          final searchLower = searchQuery.toLowerCase();
+          final matchesSearch = user.username.toLowerCase().contains(searchLower) ||
+              user.email.toLowerCase().contains(searchLower) ||
+              (user.phone?.toLowerCase().contains(searchLower) ?? false) ||
+              branch.name.toLowerCase().contains(searchLower);
+          if (!matchesSearch) continue;
+        }
         rows.add({'user': user, 'branch': branch});
       }
     }
