@@ -24,7 +24,6 @@ class RequestsPageState extends State<RequestsPage> {
   String? _commissaryCloudId;
   
   // Missing state variables - added to fix compile errors
-  final TextEditingController _searchController = TextEditingController();
   int selectedTab = 0;
   String searchQuery = '';
   final TextEditingController searchController = TextEditingController();
@@ -141,6 +140,31 @@ class RequestsPageState extends State<RequestsPage> {
     } else {
       debugPrint('RequestsPage: no currentUser yet');
     }
+  }
+
+  /// Get branch names for a list of requests
+  Future<Map<int, String>> getBranchNames(
+    List<StockReplenishmentRequest> requests,
+  ) async {
+    final branchIds = requests.map((r) => r.franchiseeId).toSet();
+    final branchNames = <int, String>{};
+    
+    for (final branchId in branchIds) {
+      final org = await db.organizationsDao.getOrganizationById(branchId);
+      branchNames[branchId] = org?.name ?? 'Unknown Branch';
+    }
+    
+    return branchNames;
+  }
+
+  /// Public method to approve a request
+  void approveRequest(StockReplenishmentRequest request) {
+    _approveRequest(request);
+  }
+
+  /// Public method to reject a request
+  void rejectRequest(StockReplenishmentRequest request) {
+    _rejectRequest(request);
   }
 
 
