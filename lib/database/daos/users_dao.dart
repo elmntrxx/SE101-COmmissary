@@ -119,6 +119,13 @@ class UsersDao extends DatabaseAccessor<AppDatabase> with _$UsersDaoMixin {
     return (select(users)..where((u) => u.needsSync.equals(true))).get();
   }
 
+  /// Get unsynced users (including newly created ones)
+  Future<List<User>> getUnsyncedUsersForPush() {
+    return (select(users)
+          ..where((u) => u.needsSync.equals(true)))
+        .get();
+  }
+
   /// Mark as synced
   Future<int> markAsSynced(int id, DateTime syncTime) {
     return (update(users)..where((u) => u.id.equals(id))).write(

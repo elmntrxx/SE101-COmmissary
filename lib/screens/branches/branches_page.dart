@@ -530,20 +530,27 @@ class BranchesPageState extends State<BranchesPage> {
       }
 
       // 2. Create user in local database with auth_user_id
-      await db
-          .into(db.users)
-          .insert(
-            UsersCompanion.insert(
-              cloudId: _uuid.v4(),
-              username: name,
-              email: email,
-              phone: Value(phone),
-              passwordHash: AppDatabase.hashPassword(password),
-              organizationId: branch.id,
-              roleId: branchAdminRole.id,
-              authUserId: Value(authUserId),
-            ),
-          );
+      try {
+        final userId = await db
+            .into(db.users)
+            .insert(
+              UsersCompanion.insert(
+                cloudId: authUserId,
+                username: name,
+                email: email,
+                phone: Value(phone),
+                passwordHash: AppDatabase.hashPassword(password),
+                organizationId: branch.id,
+                roleId: branchAdminRole.id,
+                authUserId: Value(authUserId),
+              ),
+            );
+        
+        print('✅ User created locally with ID: $userId');
+      } catch (e) {
+        print('❌ Failed to create user locally: $e');
+        rethrow;
+      }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(

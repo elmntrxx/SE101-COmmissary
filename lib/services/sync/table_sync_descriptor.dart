@@ -204,6 +204,7 @@ class TableSyncDescriptor<T> {
       if (!mapping.pushable) continue;
 
       final localValue = localData[mapping.localField];
+      
       if (localValue != null) {
         cloudData[mapping.cloudField] = mapping.toCloud != null
             ? mapping.toCloud!(localValue)

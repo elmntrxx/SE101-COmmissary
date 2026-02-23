@@ -71,6 +71,7 @@ class _LoginScreenState extends State<LoginScreen> {
         email: email,
         password: password,
       );
+      
 
       print('🔐 [LOGIN] signIn result: success=${result.success}, message=${result.message}, localUser=${result.localUser != null}');
 

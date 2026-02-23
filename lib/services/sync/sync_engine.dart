@@ -7,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../database/app_database.dart';
+import '../../database/user_extensions.dart';
 import '../../utils/app_logger.dart';
 import 'sync_conflict.dart';
 import 'table_sync_descriptor.dart';

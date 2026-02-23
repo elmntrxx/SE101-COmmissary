@@ -41,9 +41,9 @@ final usersDescriptor = TableSyncDescriptor(
   
   fieldMappings: [
     FieldMapping.simple('email', 'email'),
-    FieldMapping.simple('name', 'name'),
+    FieldMapping.simple('username', 'username'),
     FieldMapping.simple('authUserId', 'auth_user_id'),
-    FieldMapping.simple('passwordHash', 'password_hash'),
+    FieldMapping.simple('passwordHash', 'password'),
     FieldMapping.boolean('isActive', 'is_active'),
     FieldMapping.dateTime('createdAt', 'created_at'),
     FieldMapping.dateTime('updatedAt', 'last_updated'),
