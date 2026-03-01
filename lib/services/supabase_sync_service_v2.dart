@@ -393,7 +393,7 @@ class SupabaseSyncServiceV2 {
     final pushResult = await _engine.pushTable(
       descriptor: usersDescriptor,
       getUnsyncedRecords: ({int limit = 50, int offset = 0}) async {
-        final all = await db.usersDao.getUnsyncedUsers();
+        final all = await db.usersDao.getUnsyncedUsersForPush();
         return all.skip(offset).take(limit).toList();
       },
       markAsSynced: (ids, {Map<int, String>? cloudIds}) async {
@@ -403,7 +403,7 @@ class SupabaseSyncServiceV2 {
       },
       toMap: (user) => {
         'email': user.email,
-        'name': user.username,
+        'username': user.username,
         'authUserId': user.authUserId,
         'passwordHash': user.passwordHash,
         'organizationId': user.organizationId,
